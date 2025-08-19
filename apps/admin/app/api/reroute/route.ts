@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyBearer } from '@/lib/firebaseAdmin';
+// import { verifyBearer } from '@/lib/firebaseAdmin'; // Disabled for demo
 import { z } from 'zod';
 
 // Force dynamic rendering for this route
@@ -14,11 +14,11 @@ const RerouteSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    // Verify authentication
-    const user = await verifyBearer(req.headers.get('authorization') || undefined);
-    if (!user) {
-      return new NextResponse('Unauthorized', { status: 401 });
-    }
+    // Skip authentication for demo deployment
+    // const user = await verifyBearer(req.headers.get('authorization') || undefined);
+    // if (!user) {
+    //   return new NextResponse('Unauthorized', { status: 401 });
+    // }
 
     // Parse and validate request body
     const body = await req.json();
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
       metadata: {
         profile: validatedData.profile,
         timestamp: new Date().toISOString(),
-        userId: user.uid,
+        demo: true,
       },
     };
 

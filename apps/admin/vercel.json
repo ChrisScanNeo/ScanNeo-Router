@@ -2,6 +2,6 @@
   "framework": "nextjs",
   "buildCommand": "npx next build",
   "devCommand": "npx next dev",
-  "installCommand": "npm install --legacy-peer-deps",
+  "installCommand": "corepack enable && pnpm install --frozen-lockfile",
   "regions": ["lhr1"]
 }
