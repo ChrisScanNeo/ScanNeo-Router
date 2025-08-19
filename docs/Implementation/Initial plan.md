@@ -151,7 +151,7 @@ Neon supports PostGIS; you can enable it via CREATE EXTENSION postgis.
 Neon
 PostGIS
 
-Test block
+Test blocks
 
 Connect from psql and run SELECT PostGIS_Version(); → expect a version string.
 
