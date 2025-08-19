@@ -3,6 +3,5 @@
   "installCommand": "pnpm install --no-optional",
   "framework": null,
   "outputDirectory": "apps/admin/.next",
-  "ignoreBuildErrors": false,
   "regions": ["lhr1"]
 }
