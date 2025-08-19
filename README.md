@@ -1,6 +1,44 @@
-# ScanNeo-Router 🗺️
+# ScanNeo Router
 
-A city coverage routing system that generates optimal driving routes for complete street coverage, with real-time navigation and rerouting capabilities.
+A comprehensive city coverage routing system with real-time navigation and rerouting capabilities.
+
+## 🚀 Live Deployment
+
+- **Admin Dashboard**: https://scanneo-router-admin.vercel.app
+- **API Status**: https://scanneo-router-admin.vercel.app/api/reroute
+
+## 📋 Project Status
+
+### ✅ Phase 1: Core Infrastructure (Complete)
+
+- Monorepo structure with Turborepo
+- Next.js admin dashboard deployed
+- PostgreSQL with PostGIS (Neon)
+- Firebase Authentication
+- Redis queue system (Upstash)
+- OpenRouteService integration
+- Mapbox integration
+
+### ✅ Phase 2: Coverage Algorithm (Complete)
+
+- Grid-based coverage calculation
+- Street network fetching from OpenStreetMap
+- Chinese Postman algorithm for optimal routing
+- Route validation and optimization
+- Progress tracking system
+
+### 🚧 Phase 3: Mobile Navigator App (In Progress)
+
+- React Native with Expo
+- Real-time navigation
+- Offline mode support
+- Voice guidance
+
+### 📅 Phase 4: Python Worker Service (Planned)
+
+- FastAPI service
+- Background processing
+- Route optimization
 
 ## 🚀 Quick Start (5 minutes)
 
