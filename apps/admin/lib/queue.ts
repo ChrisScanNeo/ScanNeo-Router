@@ -19,7 +19,7 @@ export const buildQueue = {
   },
 
   async updateStatus(jobId: string, status: unknown) {
-    await redis.hset('job-status', jobId, JSON.stringify(status));
+    await redis.hset('job-status', { [jobId]: JSON.stringify(status) });
   },
 
   async list() {

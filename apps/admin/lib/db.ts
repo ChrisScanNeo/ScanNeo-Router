@@ -8,13 +8,5 @@ neonConfig.pipelineConnect = 'password';
 // Initialize database connection
 export const sql = neon(process.env.DATABASE_URL!);
 
-// Type-safe query helper
-export async function query<T = unknown>(queryText: string, params?: unknown[]): Promise<T[]> {
-  try {
-    const result = await sql(queryText, params);
-    return result as T[];
-  } catch (error) {
-    console.error('Database query error:', error);
-    throw error;
-  }
-}
+// Export the sql function directly for use in API routes
+// The Neon sql function uses template literals, not regular strings

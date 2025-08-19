@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       );
     }
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
 }
 
 // GET endpoint for health check
-export async function GET(_req: NextRequest) {
+export async function GET() {
   return NextResponse.json({
     status: 'healthy',
     service: 'reroute-api',
