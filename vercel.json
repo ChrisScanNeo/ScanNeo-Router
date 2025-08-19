@@ -1,7 +1,4 @@
 {
-  "buildCommand": "pnpm turbo run build --filter=@scanneo/admin",
-  "installCommand": "pnpm install --no-optional",
-  "framework": null,
-  "outputDirectory": "apps/admin/.next",
+  "rootDirectory": "apps/admin",
   "regions": ["lhr1"]
 }
