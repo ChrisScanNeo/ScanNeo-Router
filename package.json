@@ -15,7 +15,7 @@
     "dev:admin": "turbo run dev --filter=@scanneo/admin",
     "dev:navigator": "turbo run dev --filter=@scanneo/navigator",
     "dev:worker": "turbo run dev --filter=@scanneo/worker",
-    "build": "cd apps/admin && pnpm build",
+    "build": "turbo run build",
     "test": "turbo run test",
     "test:unit": "turbo run test:unit",
     "test:e2e": "turbo run test:e2e",
