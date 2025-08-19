@@ -78,3 +78,22 @@ All features work correctly in development environment.
 
 - 2025-08-19 17:45: Initial investigation started
 - 2025-08-19 17:50: Documented current status and potential causes
+- 2025-08-19 18:15: Fixed TypeScript/ESLint build errors
+- 2025-08-19 18:20: Added London region configuration (lhr1)
+- 2025-08-19 18:30: Resolved ESLint dependency issues (rollup/gulp errors)
+- 2025-08-19 18:35: Created demo deployment without firebase-admin dependencies
+- 2025-08-19 18:40: **Current Issue**: Still building in Washington D.C. (iad1), lockfile mismatch
+
+### Current Blocking Issues
+
+1. **Region Configuration Not Working**: Despite `"regions": ["lhr1"]` in vercel.json, still building in iad1
+2. **Turbo Override**: Vercel detects Turbo and overrides our build settings
+3. **Lockfile Mismatch**: pnpm-lock.yaml needs updating after package.json changes
+4. **Build Location**: Need to configure region at project level, not just in vercel.json
+
+### Solutions Being Applied
+
+1. **Updated vercel.json**: Changed to use functions.regions for LHR1
+2. **Fixed Lockfile**: Updated pnpm-lock.yaml to match new dependencies
+3. **Removed Frozen Lockfile**: Using `--no-frozen-lockfile` for flexibility
+4. **Next Step**: May need to configure region in Vercel Dashboard project settings

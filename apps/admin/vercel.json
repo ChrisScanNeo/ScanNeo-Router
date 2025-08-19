@@ -2,6 +2,11 @@
   "framework": "nextjs",
   "buildCommand": "npx next build",
   "devCommand": "npx next dev",
-  "installCommand": "corepack enable && pnpm install --frozen-lockfile",
-  "regions": ["lhr1"]
+  "installCommand": "pnpm install --no-frozen-lockfile",
+  "functions": {
+    "app/**/*.{js,ts}": {
+      "runtime": "nodejs18.x",
+      "regions": ["lhr1"]
+    }
+  }
 }
