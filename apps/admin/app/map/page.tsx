@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 export default function MapPage() {
   const [selectedLayer, setSelectedLayer] = useState<'areas' | 'routes' | 'coverage'>('areas');
@@ -44,7 +44,6 @@ export default function MapPage() {
             <h3 className="text-lg font-medium text-gray-900 mb-4">Map Layers</h3>
             <div className="space-y-3">
               <LayerToggle
-                id="areas"
                 label="Coverage Areas"
                 description="Imported polygon boundaries"
                 color="blue"
@@ -52,7 +51,6 @@ export default function MapPage() {
                 onClick={() => setSelectedLayer('areas')}
               />
               <LayerToggle
-                id="routes"
                 label="Generated Routes"
                 description="Optimal coverage paths"
                 color="green"
@@ -60,7 +58,6 @@ export default function MapPage() {
                 onClick={() => setSelectedLayer('routes')}
               />
               <LayerToggle
-                id="coverage"
                 label="Coverage Progress"
                 description="Completed road segments"
                 color="purple"
@@ -142,14 +139,12 @@ export default function MapPage() {
 }
 
 function LayerToggle({
-  id,
   label,
   description,
   color,
   active,
   onClick,
 }: {
-  id: string;
   label: string;
   description: string;
   color: string;

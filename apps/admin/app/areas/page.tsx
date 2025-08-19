@@ -288,7 +288,13 @@ function AreaImporter() {
 
 function AreasList() {
   // This will be populated with actual data from the API
-  const areas = []; // Placeholder for now
+  const areas: {
+    id: string;
+    name: string;
+    profile: string;
+    buffer_m: number;
+    created_at: string;
+  }[] = []; // Placeholder for now
 
   if (areas.length === 0) {
     return (
@@ -337,7 +343,7 @@ function AreasList() {
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {areas.map((area: any) => (
+          {areas.map((area) => (
             <tr key={area.id}>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                 {area.name}
