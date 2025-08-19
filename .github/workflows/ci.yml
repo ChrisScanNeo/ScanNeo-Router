@@ -1,0 +1,391 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '8'
+
+jobs:
+  # Stage 1: Code Quality Checks
+  lint-and-format:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Run linter
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm typecheck
+
+  # Stage 2: Unit Tests
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint-and-format
+    strategy:
+      matrix:
+        package: [admin, navigator, worker, shared, ui]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests for ${{ matrix.package }}
+        run: pnpm --filter @scanneo/${{ matrix.package }} test:coverage
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./apps/${{ matrix.package }}/coverage/lcov.info,./packages/${{ matrix.package }}/coverage/lcov.info
+          flags: ${{ matrix.package }}
+          name: ${{ matrix.package }}-coverage
+
+  # Stage 3: Integration Tests
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    services:
+      postgres:
+        image: postgis/postgis:15-3.3
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: scanneo_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup database
+        run: |
+          PGPASSWORD=test psql -h localhost -U test -d scanneo_test -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+          pnpm --filter @scanneo/infra run migrate:test
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/scanneo_test
+
+      - name: Run integration tests
+        run: pnpm --filter @scanneo/scripts test:integration
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/scanneo_test
+          REDIS_URL: redis://localhost:6379
+
+  # Stage 4: Build Applications
+  build:
+    name: Build Applications
+    runs-on: ubuntu-latest
+    needs: integration-tests
+    strategy:
+      matrix:
+        app: [admin, navigator, worker]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build ${{ matrix.app }}
+        run: pnpm --filter @scanneo/${{ matrix.app }} build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.app }}-build
+          path: |
+            apps/${{ matrix.app }}/dist
+            apps/${{ matrix.app }}/.next
+            apps/${{ matrix.app }}/build
+          retention-days: 7
+
+  # Stage 5: E2E Tests
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download admin build
+        uses: actions/download-artifact@v3
+        with:
+          name: admin-build
+          path: apps/admin/.next
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Run E2E tests - ${{ matrix.browser }}
+        run: pnpm --filter @scanneo/scripts test:e2e --project=${{ matrix.browser }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: playwright-results-${{ matrix.browser }}
+          path: scripts/test-results/
+          retention-days: 7
+
+  # Stage 6: Mobile App Tests (React Native)
+  mobile-tests:
+    name: Mobile App Tests
+    runs-on: macos-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Detox dependencies
+        run: |
+          brew tap wix/brew
+          brew install applesimutils
+
+      - name: Build iOS app for testing
+        run: |
+          cd apps/navigator
+          npx expo prebuild --platform ios
+          xcodebuild -workspace ios/*.xcworkspace -scheme Navigator -configuration Debug -sdk iphonesimulator -derivedDataPath ios/build
+
+      - name: Run Detox tests
+        run: pnpm --filter @scanneo/navigator test:e2e:ios
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: detox-artifacts
+          path: apps/navigator/artifacts/
+          retention-days: 7
+
+  # Stage 7: Security Scan
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy security scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Check for vulnerabilities
+        run: |
+          pnpm audit --audit-level=high
+
+  # Stage 8: Deploy to Staging
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [e2e-tests, mobile-tests, security-scan]
+    if: github.ref == 'refs/heads/develop'
+    environment:
+      name: staging
+      url: https://staging.scanneo-router.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy Admin to Vercel (Staging)
+        run: |
+          npx vercel --token ${{ secrets.VERCEL_TOKEN }} --scope ${{ secrets.VERCEL_SCOPE }} --env DATABASE_URL=${{ secrets.STAGING_DATABASE_URL }} --prod=false
+
+      - name: Deploy Worker to Cloud Run (Staging)
+        run: |
+          echo '${{ secrets.GCP_SA_KEY }}' | base64 -d > gcp-key.json
+          gcloud auth activate-service-account --key-file=gcp-key.json
+          gcloud config set project ${{ secrets.GCP_PROJECT }}
+          gcloud run deploy scanneo-worker-staging \
+            --source=apps/worker \
+            --region=europe-west2 \
+            --platform=managed \
+            --allow-unauthenticated \
+            --set-env-vars=DATABASE_URL=${{ secrets.STAGING_DATABASE_URL }}
+
+      - name: Run smoke tests
+        run: |
+          pnpm --filter @scanneo/scripts test:smoke --env=staging
+
+  # Stage 9: Deploy to Production
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [e2e-tests, mobile-tests, security-scan]
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://scanneo-router.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create release tag
+        run: |
+          VERSION=$(date +%Y.%m.%d)-${{ github.run_number }}
+          git tag v$VERSION
+          git push origin v$VERSION
+
+      - name: Deploy Admin to Vercel (Production)
+        run: |
+          npx vercel --token ${{ secrets.VERCEL_TOKEN }} --scope ${{ secrets.VERCEL_SCOPE }} --env DATABASE_URL=${{ secrets.PROD_DATABASE_URL }} --prod
+
+      - name: Deploy Worker to Cloud Run (Production)
+        run: |
+          echo '${{ secrets.GCP_SA_KEY }}' | base64 -d > gcp-key.json
+          gcloud auth activate-service-account --key-file=gcp-key.json
+          gcloud config set project ${{ secrets.GCP_PROJECT }}
+          gcloud run deploy scanneo-worker \
+            --source=apps/worker \
+            --region=europe-west2 \
+            --platform=managed \
+            --allow-unauthenticated \
+            --set-env-vars=DATABASE_URL=${{ secrets.PROD_DATABASE_URL }}
+
+      - name: Run smoke tests
+        run: |
+          pnpm --filter @scanneo/scripts test:smoke --env=production
+
+      - name: Notify deployment
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: 'Production deployment completed for version v${{ env.VERSION }}'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+  # Stage 10: Performance Tests (Optional)
+  performance-tests:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install k6
+        run: |
+          sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Run performance tests
+        run: |
+          k6 run scripts/performance/load-test.js --env BASE_URL=https://staging.scanneo-router.com
+
+      - name: Upload performance results
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-results
+          path: performance-results/
+          retention-days: 30

@@ -1,0 +1,23 @@
+{
+  "extends": "./packages/config/tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@scanneo/shared": ["./packages/shared/src"],
+      "@scanneo/shared/*": ["./packages/shared/src/*"],
+      "@scanneo/ui": ["./packages/ui/src"],
+      "@scanneo/ui/*": ["./packages/ui/src/*"],
+      "@scanneo/config": ["./packages/config"]
+    }
+  },
+  "references": [
+    { "path": "./apps/admin" },
+    { "path": "./apps/navigator" },
+    { "path": "./apps/worker" },
+    { "path": "./packages/shared" },
+    { "path": "./packages/ui" },
+    { "path": "./packages/config" }
+  ],
+  "include": [],
+  "exclude": ["node_modules"]
+}

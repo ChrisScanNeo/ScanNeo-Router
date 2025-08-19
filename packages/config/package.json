@@ -1,0 +1,14 @@
+{
+  "name": "@scanneo/config",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "files": [
+    "tsconfig.base.json",
+    "tsconfig.nextjs.json",
+    "tsconfig.react-native.json",
+    "tsconfig.node.json",
+    "eslint-preset.js",
+    "prettier-preset.js"
+  ]
+}
