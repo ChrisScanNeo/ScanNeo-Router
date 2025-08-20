@@ -1,8 +1,34 @@
+# FastAPI and server
 fastapi==0.109.0
-uvicorn==0.27.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# Database
 psycopg2-binary==2.9.9
+sqlalchemy==2.0.23
+geoalchemy2==0.14.2
+
+# Environment and config
 python-dotenv==1.0.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# Redis for job queue
 redis==5.0.1
 tenacity==8.2.3
+
+# HTTP client
 requests==2.31.0
-pydantic==2.5.3
+httpx==0.25.2
+
+# Geometry and GIS
+shapely==2.0.2
+geojson==3.1.0
+pyproj==3.6.1
+
+# OpenStreetMap data
+osmnx==1.8.0
+networkx==3.2.1
+
+# Utilities
+python-dateutil==2.8.2

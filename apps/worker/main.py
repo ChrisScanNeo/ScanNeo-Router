@@ -1,212 +1,150 @@
 """
 ScanNeo Worker Service
-Processes coverage jobs and generates navigable routes
+Main FastAPI application for route processing
 """
 
-import os
-import json
 import asyncio
 import logging
-from typing import Dict, Any, Optional
-from datetime import datetime
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-import psycopg2
-from psycopg2.extras import RealDictCursor
-from redis import Redis
-from dotenv import load_dotenv
-import requests
-from tenacity import retry, stop_after_attempt, wait_exponential
 
-# Load environment variables
-load_dotenv()
+from app.config import settings
+from app.database import db
+from app.services import JobProcessor
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, settings.log_level),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
+# Job processor instance
+job_processor = JobProcessor()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifecycle"""
+    # Startup
+    logger.info(f"Starting {settings.service_name} v{settings.service_version}")
+    
+    # Start job processor in background
+    asyncio.create_task(job_processor.start())
+    
+    yield
+    
+    # Shutdown
+    logger.info("Shutting down worker service")
+    await job_processor.stop()
+
+
 # Initialize FastAPI app
 app = FastAPI(
-    title="ScanNeo Worker",
-    description="Coverage processing worker service",
-    version="1.0.0"
+    title=settings.service_name,
+    description="Coverage route generation worker service",
+    version=settings.service_version,
+    lifespan=lifespan
 )
 
-# Configuration from environment
-DATABASE_URL = os.getenv('DATABASE_URL')
-ORS_API_KEY = os.getenv('ORS_API_KEY')
-REDIS_URL = os.getenv('UPSTASH_REDIS_REST_URL')
-REDIS_TOKEN = os.getenv('UPSTASH_REDIS_REST_TOKEN')
 
-# Initialize Redis client
-redis_client = None
-if REDIS_URL and REDIS_TOKEN:
-    try:
-        # For Upstash REST API, we'll use requests instead of redis-py
-        # This is a simplified approach for the REST API
-        logger.info("Redis configuration found, queue processing will be enabled")
-    except Exception as e:
-        logger.error(f"Failed to initialize Redis: {e}")
-
-# Database connection pool
-def get_db_connection():
-    """Create a database connection"""
-    try:
-        conn = psycopg2.connect(DATABASE_URL)
-        return conn
-    except Exception as e:
-        logger.error(f"Database connection failed: {e}")
-        raise
-
-# Pydantic models
-class JobStatus(BaseModel):
-    job_id: str
-    status: str
-    progress: int
-    stage: str
-    area_id: Optional[str] = None
-    error: Optional[str] = None
-
-class HealthCheck(BaseModel):
+# Request/Response models
+class HealthResponse(BaseModel):
     status: str
     service: str
+    version: str
     database: bool
-    redis: bool
-    timestamp: str
+    environment: str
 
-# Background task for processing jobs
-async def process_jobs():
-    """Main job processing loop"""
-    logger.info("Starting job processor")
-    
-    while True:
-        try:
-            # Check queue for jobs (simplified for Phase 1)
-            # In Phase 2, this will be expanded with actual coverage algorithm
-            await asyncio.sleep(5)
-            
-        except Exception as e:
-            logger.error(f"Job processing error: {e}")
-            await asyncio.sleep(10)
 
-# API Endpoints
-@app.on_event("startup")
-async def startup_event():
-    """Initialize background tasks on startup"""
-    logger.info("Worker service starting up")
-    
-    # Test database connection
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT 1")
-        conn.close()
-        logger.info("Database connection successful")
-    except Exception as e:
-        logger.error(f"Database connection failed: {e}")
-    
-    # Start background job processor
-    asyncio.create_task(process_jobs())
+class ManualJobRequest(BaseModel):
+    area_id: str
+    profile: str = "driving-car"
+    chunk_duration: int = 3600
 
-@app.get("/health", response_model=HealthCheck)
-async def health_check():
-    """Health check endpoint"""
-    
-    # Check database
-    db_healthy = False
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT 1")
-        conn.close()
-        db_healthy = True
-    except:
-        pass
-    
-    # Check Redis
-    redis_healthy = bool(REDIS_URL and REDIS_TOKEN)
-    
-    return HealthCheck(
-        status="healthy" if db_healthy else "degraded",
-        service="scanneo-worker",
-        database=db_healthy,
-        redis=redis_healthy,
-        timestamp=datetime.utcnow().isoformat()
-    )
 
-@app.get("/status/{job_id}", response_model=JobStatus)
-async def get_job_status(job_id: str):
-    """Get status of a specific job"""
-    
-    # For Phase 1, return a mock status
-    # This will be connected to Redis in production
-    return JobStatus(
-        job_id=job_id,
-        status="pending",
-        progress=0,
-        stage="Waiting in queue",
-        area_id=None
-    )
-
-@app.post("/process/test")
-async def test_processing():
-    """Test endpoint to verify worker is functional"""
-    
-    # Test database connection
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT COUNT(*) as count FROM areas")
-        result = cur.fetchone()
-        conn.close()
-        
-        return JSONResponse({
-            "status": "success",
-            "message": "Worker is functional",
-            "areas_count": result['count'] if result else 0,
-            "timestamp": datetime.utcnow().isoformat()
-        })
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/")
+@app.get("/", response_model=HealthResponse)
 async def root():
-    """Root endpoint"""
+    """Root endpoint - health check"""
+    return await health()
+
+
+@app.get("/health", response_model=HealthResponse)
+async def health():
+    """Health check endpoint"""
+    db_healthy = db.health_check()
+    
     return {
-        "service": "ScanNeo Worker",
-        "version": "1.0.0",
-        "status": "running",
-        "endpoints": {
-            "health": "/health",
-            "docs": "/docs",
-            "status": "/status/{job_id}"
-        }
+        "status": "healthy" if db_healthy else "degraded",
+        "service": settings.service_name,
+        "version": settings.service_version,
+        "database": db_healthy,
+        "environment": settings.environment
     }
 
-# Placeholder for coverage algorithm (Phase 2)
-class CoverageProcessor:
-    """Placeholder for coverage processing logic"""
+
+@app.post("/process/manual")
+async def trigger_manual_job(request: ManualJobRequest):
+    """
+    Manually trigger job processing (for testing)
+    Only available in development environment
+    """
+    if settings.environment == "production":
+        raise HTTPException(
+            status_code=403,
+            detail="Manual job triggering not allowed in production"
+        )
     
-    def __init__(self, area_id: str):
-        self.area_id = area_id
+    try:
+        # Create a mock job
+        job = {
+            'id': f'manual_{request.area_id}',
+            'area_id': request.area_id,
+            'profile': request.profile,
+            'params': {
+                'chunkDuration': request.chunk_duration,
+                'manual': True
+            }
+        }
         
-    async def process(self):
-        """Process coverage for an area"""
-        # This will be implemented in Phase 2 with:
-        # 1. OSM data extraction
-        # 2. Graph building
-        # 3. Coverage path calculation
-        # 4. ORS routing
-        # 5. Chunking
-        logger.info(f"Processing coverage for area {self.area_id}")
-        return {"status": "completed", "area_id": self.area_id}
+        # Process immediately
+        await job_processor.process_job(job)
+        
+        return {
+            "success": True,
+            "message": "Job processed",
+            "job_id": job['id']
+        }
+    
+    except Exception as e:
+        logger.error(f"Manual job failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
+
+@app.get("/status")
+async def status():
+    """Get worker status and statistics"""
+    # Could add metrics here
+    return {
+        "status": "running",
+        "processor_active": job_processor.running,
+        "environment": settings.environment
+    }
+
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("WORKER_PORT", 8080))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8080,
+        reload=settings.environment == "development",
+        log_level=settings.log_level.lower()
+    )
