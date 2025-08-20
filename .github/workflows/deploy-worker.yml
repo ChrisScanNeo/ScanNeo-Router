@@ -27,12 +27,27 @@ jobs:
           echo "Region: $REGION"
           echo "GitHub SHA: $GITHUB_SHA"
           echo "Checking if secrets are configured..."
-          # Secrets are masked in output, so we just verify the build will work
+
+          # Check if secrets exist (they'll be masked in output)
+          if [ -z '${{ secrets.GCP_SA_KEY }}' ]; then
+            echo "ERROR: GCP_SA_KEY secret is not set!"
+            echo "Please add your service account JSON key in GitHub Settings > Secrets > Actions"
+            exit 1
+          fi
+
+          if [ -z '${{ secrets.GCP_PROJECT_ID }}' ]; then
+            echo "ERROR: GCP_PROJECT_ID secret is not set!"
+            echo "Please add your Google Cloud project ID in GitHub Settings > Secrets > Actions"
+            exit 1
+          fi
+
+          echo "All required secrets appear to be configured"
 
       - name: Authenticate to Google Cloud
+        id: auth
         uses: google-github-actions/auth@v1
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
       - name: Setup Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
