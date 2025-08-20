@@ -85,15 +85,50 @@ function AreaImporter() {
   const [profile, setProfile] = useState('driving-car');
   const [includeService, setIncludeService] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file && file.type === 'application/json') {
-      setSelectedFile(file);
-      if (!areaName) {
-        setAreaName(file.name.replace('.geojson', '').replace('.json', ''));
-      }
+    processFile(file);
+  };
+
+  const processFile = (file: File | null | undefined) => {
+    setError(null);
+
+    if (!file) {
+      setError('No file selected');
+      return;
     }
+
+    // Check file type
+    if (!file.name.endsWith('.json') && !file.name.endsWith('.geojson')) {
+      setError('Please select a GeoJSON file (.json or .geojson)');
+      return;
+    }
+
+    setSelectedFile(file);
+    if (!areaName) {
+      setAreaName(file.name.replace('.geojson', '').replace('.json', ''));
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files?.[0];
+    processFile(file);
   };
 
   const handleImport = async () => {
@@ -118,9 +153,8 @@ function AreaImporter() {
       // Simulate API delay
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      alert(
-        `Area "${areaName}" would be imported successfully!\n\nThis is a demo - actual import requires authentication.`
-      );
+      alert(`Area "${areaName}" imported successfully! (Demo mode)`);
+      setError(null);
 
       // Reset form
       setSelectedFile(null);
@@ -129,7 +163,10 @@ function AreaImporter() {
       setProfile('driving-car');
       setIncludeService(false);
     } catch (error) {
-      alert('Error processing GeoJSON: ' + error);
+      console.error('Import error:', error);
+      setError(
+        'Error processing GeoJSON: ' + (error instanceof Error ? error.message : String(error))
+      );
     } finally {
       setIsUploading(false);
     }
@@ -140,7 +177,12 @@ function AreaImporter() {
       {/* File Upload */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">GeoJSON File</label>
-        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+        <div
+          className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 ${isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'} border-dashed rounded-md transition-colors`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
           <div className="space-y-1 text-center">
             <svg
               className="mx-auto h-12 w-12 text-gray-400"
@@ -165,7 +207,7 @@ function AreaImporter() {
                   id="file-upload"
                   name="file-upload"
                   type="file"
-                  className="sr-only"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   accept=".geojson,.json"
                   onChange={handleFileSelect}
                 />
@@ -178,6 +220,7 @@ function AreaImporter() {
         {selectedFile && (
           <p className="mt-2 text-sm text-green-600">Selected: {selectedFile.name}</p>
         )}
+        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
       </div>
 
       {/* Area Configuration */}
@@ -192,7 +235,7 @@ function AreaImporter() {
             id="area-name"
             value={areaName}
             onChange={(e) => setAreaName(e.target.value)}
-            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
             placeholder="e.g., Tower Hamlets"
           />
         </div>
@@ -207,7 +250,7 @@ function AreaImporter() {
             id="buffer-distance"
             value={bufferDistance}
             onChange={(e) => setBufferDistance(parseInt(e.target.value) || 0)}
-            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
             placeholder="0"
             min="0"
           />
@@ -222,7 +265,7 @@ function AreaImporter() {
             name="profile"
             value={profile}
             onChange={(e) => setProfile(e.target.value)}
-            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
           >
             <option value="driving-car">Driving (Car)</option>
             <option value="driving-hgv">Driving (HGV)</option>
