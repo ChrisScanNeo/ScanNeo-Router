@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function AreasPage() {
   return (
@@ -51,7 +51,10 @@ export default function AreasPage() {
             <div className="px-4 py-5 sm:p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg leading-6 font-medium text-gray-900">Existing Areas</h3>
-                <button className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <button
+                  onClick={() => window.dispatchEvent(new Event('areas-updated'))}
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
                   <svg
                     className="h-4 w-4 mr-2"
                     fill="none"
@@ -139,22 +142,33 @@ function AreaImporter() {
       const geojsonText = await selectedFile.text();
       const geojson = JSON.parse(geojsonText);
 
-      // For now, skip auth and just show a success message
-      // TODO: Implement proper Firebase auth integration
-
-      console.log('Would import area:', {
-        name: areaName,
-        geojson: geojson,
-        buffer_m: bufferDistance,
-        profile,
-        includeService,
+      // Call the real API endpoint
+      const response = await fetch('/api/import-area', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: areaName,
+          geojson: geojson,
+          buffer_m: bufferDistance,
+          profile,
+          includeService,
+          chunkDuration: 3600, // Default to 1 hour chunks
+        }),
       });
 
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const data = await response.json();
 
-      alert(`Area "${areaName}" imported successfully! (Demo mode)`);
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to import area');
+      }
+
+      alert(`Area "${areaName}" imported successfully!`);
       setError(null);
+
+      // Trigger a refresh of the areas list
+      window.dispatchEvent(new Event('areas-updated'));
 
       // Reset form
       setSelectedFile(null);
@@ -330,14 +344,126 @@ function AreaImporter() {
 }
 
 function AreasList() {
-  // This will be populated with actual data from the API
-  const areas: {
-    id: string;
-    name: string;
-    profile: string;
-    buffer_m: number;
-    created_at: string;
-  }[] = []; // Placeholder for now
+  const [areas, setAreas] = useState<
+    {
+      id: string;
+      name: string;
+      profile: string;
+      buffer_m: number;
+      created_at: string;
+    }[]
+  >([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchAreas = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch('/api/areas');
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setAreas(data.areas);
+      } else {
+        setError(data.error || 'Failed to fetch areas');
+      }
+    } catch (err) {
+      console.error('Error fetching areas:', err);
+      setError('Failed to fetch areas');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
+
+    try {
+      const response = await fetch(`/api/areas/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        alert(`Area "${name}" deleted successfully`);
+        fetchAreas(); // Refresh the list
+      } else {
+        const data = await response.json();
+        alert(`Failed to delete area: ${data.error}`);
+      }
+    } catch (err) {
+      console.error('Error deleting area:', err);
+      alert('Failed to delete area');
+    }
+  };
+
+  useEffect(() => {
+    fetchAreas();
+
+    // Listen for area updates
+    const handleUpdate = () => fetchAreas();
+    window.addEventListener('areas-updated', handleUpdate);
+
+    return () => {
+      window.removeEventListener('areas-updated', handleUpdate);
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="text-center py-8">
+        <svg
+          className="animate-spin h-8 w-8 text-blue-600 mx-auto"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          ></circle>
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+          ></path>
+        </svg>
+        <p className="mt-2 text-sm text-gray-500">Loading areas...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-8">
+        <svg
+          className="mx-auto h-12 w-12 text-red-400"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+        <h3 className="mt-2 text-sm font-medium text-gray-900">Error loading areas</h3>
+        <p className="mt-1 text-sm text-gray-500">{error}</p>
+        <button
+          onClick={fetchAreas}
+          className="mt-4 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   if (areas.length === 0) {
     return (
@@ -399,9 +525,17 @@ function AreasList() {
                 {new Date(area.created_at).toLocaleDateString()}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                <Link href={`/areas/${area.id}`} className="text-blue-600 hover:text-blue-900">
-                  View
-                </Link>
+                <div className="flex space-x-3">
+                  <Link href={`/areas/${area.id}`} className="text-blue-600 hover:text-blue-900">
+                    View
+                  </Link>
+                  <button
+                    onClick={() => handleDelete(area.id, area.name)}
+                    className="text-red-600 hover:text-red-900"
+                  >
+                    Delete
+                  </button>
+                </div>
               </td>
             </tr>
           ))}

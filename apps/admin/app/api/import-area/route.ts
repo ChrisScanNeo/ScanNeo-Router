@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-
-// Temporarily disabled for demo deployment
-// import { sql } from '@/lib/db';
-// import { buildQueue } from '@/lib/queue';
-// import { verifyBearer } from '@/lib/firebaseAdmin';
+import { sql } from '@/lib/db';
 
 // Request validation schema
 const ImportAreaSchema = z.object({
@@ -25,29 +21,42 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validatedData = ImportAreaSchema.parse(body);
 
-    // For demo deployment - simulate successful import
-    const areaId = crypto.randomUUID();
-    const jobId = `demo_job_${areaId}_${Date.now()}`;
-
-    console.log('Demo area import:', {
-      name: validatedData.name,
-      buffer_m: validatedData.buffer_m,
+    // Prepare parameters for storage
+    const params = {
       profile: validatedData.profile,
       includeService: validatedData.includeService,
       chunkDuration: validatedData.chunkDuration,
-      areaId,
-      jobId,
-    });
+    };
 
-    // Simulate processing delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    // Insert area into database with PostGIS geometry
+    const result = await sql`
+      INSERT INTO areas (name, geom, buffer_m, params)
+      VALUES (
+        ${validatedData.name},
+        ST_GeomFromGeoJSON(${JSON.stringify(validatedData.geojson)}),
+        ${validatedData.buffer_m},
+        ${JSON.stringify(params)}::jsonb
+      )
+      RETURNING id, name, buffer_m, created_at
+    `;
+
+    if (!result || result.length === 0) {
+      throw new Error('Failed to insert area into database');
+    }
+
+    const area = result[0];
+    console.log('Area imported successfully:', area);
 
     return NextResponse.json({
       success: true,
-      areaId: areaId,
-      jobId: jobId,
-      message: 'Area imported successfully (demo mode)',
-      demo: true,
+      areaId: area.id,
+      area: {
+        id: area.id,
+        name: area.name,
+        buffer_m: area.buffer_m,
+        created_at: area.created_at,
+      },
+      message: 'Area imported successfully',
     });
   } catch (error) {
     console.error('Import area error:', error);
@@ -60,5 +69,30 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ error: 'Failed to import area' }, { status: 500 });
+  }
+}
+
+// GET endpoint for health check
+export async function GET() {
+  try {
+    const { checkDatabaseConnection, checkPostGIS } = await import('@/lib/db');
+
+    const dbStatus = await checkDatabaseConnection();
+    const postgisStatus = await checkPostGIS();
+
+    return NextResponse.json({
+      status: 'healthy',
+      database: dbStatus,
+      postgis: postgisStatus,
+    });
+  } catch (error) {
+    console.error('Health check error:', error);
+    return NextResponse.json(
+      {
+        status: 'unhealthy',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 503 }
+    );
   }
 }
