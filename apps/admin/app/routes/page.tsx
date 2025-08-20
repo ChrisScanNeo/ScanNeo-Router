@@ -125,7 +125,7 @@ function RouteGenerator() {
         const data = await response.json();
         if (data.success && data.areas) {
           setAreas(
-            data.areas.map((area: any) => ({
+            data.areas.map((area: { id: string; name: string }) => ({
               id: area.id,
               name: area.name,
             }))
