@@ -13,10 +13,8 @@
   "references": [
     { "path": "./apps/admin" },
     { "path": "./apps/navigator" },
-    { "path": "./apps/worker" },
     { "path": "./packages/shared" },
-    { "path": "./packages/ui" },
-    { "path": "./packages/config" }
+    { "path": "./packages/ui" }
   ],
   "include": [],
   "exclude": ["node_modules"]
