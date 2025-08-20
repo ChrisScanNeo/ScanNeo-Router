@@ -108,7 +108,9 @@ temp/
 *.p12
 *.cer
 gcp-key.json
+gcp-key*.json
 firebase-admin-key.json
+service-account-key.json
 
 # Backup files
 *.backup

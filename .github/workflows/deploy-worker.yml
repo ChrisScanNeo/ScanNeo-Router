@@ -65,45 +65,63 @@ jobs:
           gcloud config get-value project
 
           echo "Configuring Docker authentication..."
-          gcloud auth configure-docker gcr.io --quiet
+          # Try both GCR and Artifact Registry
+          gcloud auth configure-docker gcr.io --quiet || true
+          gcloud auth configure-docker $REGION-docker.pkg.dev --quiet || true
 
           echo "Testing authentication..."
           gcloud auth list
 
-          echo "Checking available regions for GCR:"
-          gcloud container images list --repository=gcr.io/${{ secrets.GCP_PROJECT_ID }} || true
+          echo "Checking available services:"
+          gcloud services list --enabled 2>/dev/null | grep -E "(run|container|artifact)" || echo "Cannot list services (permission needed)"
 
       - name: Build Docker image
         run: |
           echo "Building Docker image..."
-          echo "Repository: gcr.io/${{ secrets.GCP_PROJECT_ID }}/$SERVICE_NAME"
-          docker build -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/$SERVICE_NAME:$GITHUB_SHA \
-            -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/$SERVICE_NAME:latest \
+          # Use Artifact Registry if available, fallback to GCR
+          IMAGE_REPO="${REGION}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/scanneo-docker"
+          GCR_REPO="gcr.io/${{ secrets.GCP_PROJECT_ID }}"
+
+          # Check if Artifact Registry is available
+          if gcloud artifacts repositories describe scanneo-docker --location=$REGION 2>/dev/null; then
+            echo "Using Artifact Registry: $IMAGE_REPO"
+            IMAGE_BASE="$IMAGE_REPO/$SERVICE_NAME"
+          else
+            echo "Using Container Registry: $GCR_REPO"
+            IMAGE_BASE="$GCR_REPO/$SERVICE_NAME"
+          fi
+
+          docker build -t $IMAGE_BASE:$GITHUB_SHA \
+            -t $IMAGE_BASE:latest \
             apps/worker/
+
+          echo "IMAGE_BASE=$IMAGE_BASE" >> $GITHUB_ENV
           echo "Docker build completed"
 
-      - name: Debug Docker and GCR
+      - name: Debug Docker and permissions
         run: |
           echo "Docker images built:"
           docker images | grep scanneo || true
 
-          echo "Checking GCR permissions:"
+          echo "Checking IAM permissions (if available):"
           gcloud projects get-iam-policy ${{ secrets.GCP_PROJECT_ID }} \
             --flatten="bindings[].members" \
-            --filter="bindings.members:serviceAccount:*" \
-            --format="table(bindings.role)" | head -20 || true
+            --filter="bindings.members:github-actions@" \
+            --format="table(bindings.role)" 2>/dev/null || echo "Cannot check IAM (permission needed)"
 
       - name: Push Docker image
         run: |
-          echo "Pushing to GCR..."
-          docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/$SERVICE_NAME:$GITHUB_SHA
-          docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/$SERVICE_NAME:latest
+          echo "Pushing Docker image..."
+          IMAGE_BASE="${{ env.IMAGE_BASE }}"
+          docker push $IMAGE_BASE:$GITHUB_SHA
+          docker push $IMAGE_BASE:latest
           echo "Push completed"
 
       - name: Deploy to Cloud Run
         run: |
+          IMAGE_BASE="${{ env.IMAGE_BASE }}"
           gcloud run deploy $SERVICE_NAME \
-            --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/$SERVICE_NAME:$GITHUB_SHA \
+            --image $IMAGE_BASE:$GITHUB_SHA \
             --platform managed \
             --region $REGION \
             --set-env-vars DATABASE_URL=${{ secrets.DATABASE_URL }} \

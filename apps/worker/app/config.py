@@ -18,8 +18,8 @@ class Settings(BaseSettings):
     ors_api_key: Optional[str] = Field(None, env='ORS_API_KEY')
     
     # Redis (Upstash)
-    redis_url: Optional[str] = Field(None, env='UPSTASH_REDIS_REST_URL')
-    redis_token: Optional[str] = Field(None, env='UPSTASH_REDIS_REST_TOKEN')
+    upstash_redis_rest_url: Optional[str] = Field(None, env='UPSTASH_REDIS_REST_URL')
+    upstash_redis_rest_token: Optional[str] = Field(None, env='UPSTASH_REDIS_REST_TOKEN')
     
     # Overpass API (OpenStreetMap)
     overpass_url: str = Field(

@@ -29,7 +29,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --no-optional=false
 
       - name: Check formatting
         run: pnpm format:check
@@ -61,7 +61,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --no-optional=false
 
       - name: Run tests for ${{ matrix.package }}
         run: pnpm --filter @scanneo/${{ matrix.package }} test:coverage
@@ -116,7 +116,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --no-optional=false
 
       - name: Setup database
         run: |
@@ -152,7 +152,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --no-optional=false
 
       - name: Build ${{ matrix.app }}
         run: pnpm --filter @scanneo/${{ matrix.app }} build
@@ -188,7 +188,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --no-optional=false
 
       - name: Download admin build
         uses: actions/download-artifact@v3
@@ -228,7 +228,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --no-optional=false
 
       - name: Install Detox dependencies
         run: |
