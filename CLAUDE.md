@@ -14,6 +14,8 @@ ScanNeo-Router is a city coverage routing system that generates optimal driving 
 
 ## Repository Structure
 
+d
+
 ```
 /ScanNeo-Router
 ├── /apps
@@ -560,17 +562,31 @@ pnpm build
   - Distance, time estimates, chunk counts
   - Action buttons (View, Map, Download)
 
-### Map Visualization (`/map`)
+### Map Visualization (`/map`) - ✅ COMPLETE
 
+- **Mapbox GL JS Integration**: Fully interactive map with navigation controls
 - **Layer Controls**: Toggle between Areas, Routes, Coverage views
+- **Area Display**: Real-time visualization of imported GeoJSON areas
 - **Filtering**: Filter by specific area or route
 - **Statistics Panel**: Dynamic stats based on selected layer
 - **Legend**: Color-coded legend for map elements
-- **Map Placeholder**: Ready for Mapbox GL JS integration
+- **Interactive Features**:
+  - Click areas for popup information
+  - Zoom to fit imported areas
+  - Pan, zoom, and fullscreen controls
+  - Hover effects on areas
 
-### API Integration
+### API Integration - ✅ ENHANCED
 
-- **Import Area** (`/api/import-area`): Full implementation with PostGIS
+- **Import Area** (`/api/import-area`):
+  - Full PostGIS implementation
+  - Supports Polygon, MultiPolygon, Feature, and FeatureCollection
+  - Automatic geometry type conversion
+  - Comprehensive error handling
+- **Areas CRUD** (`/api/areas`, `/api/areas/[id]`):
+  - List all areas with GeoJSON
+  - Get individual area details
+  - Delete areas by ID
 - **Reroute Proxy** (`/api/reroute`): OpenRouteService integration
 - **Coverage Endpoints**: Ready for backend worker integration
 - **Authentication**: Firebase Admin SDK integration
@@ -579,22 +595,51 @@ pnpm build
 
 ### Current Working Features
 
-- ✅ Admin dashboard with navigation
-- ✅ Area import interface (demo mode)
-- ✅ Route management interface (demo mode)
-- ✅ Map visualization interface (placeholder)
-- ✅ API routes for area import and rerouting
-- ✅ Database schema with PostGIS
+- ✅ Admin dashboard with ScanNeo branding
+- ✅ Area import with full GeoJSON support (Polygon, MultiPolygon, Features)
+- ✅ Areas management with database persistence
+- ✅ Individual area detail pages with map visualization
+- ✅ Interactive Mapbox GL JS map visualization
+- ✅ Route management interface (UI ready)
+- ✅ Full API implementation for areas CRUD
+- ✅ Database schema with PostGIS (supports all geometry types)
 - ✅ Queue system with Upstash Redis
 - ✅ Environment configuration
+- ✅ Professional toast notifications
+- ✅ Responsive design throughout
+
+### GeoJSON Support
+
+The system now fully supports various GeoJSON formats:
+
+- **Simple Geometries**:
+  - `Polygon` - Single connected area
+  - `MultiPolygon` - Multiple disconnected areas (e.g., Portsmouth with islands)
+- **Feature Objects**:
+  - `Feature` with Polygon/MultiPolygon geometry
+  - Includes properties metadata
+- **Collections**:
+  - `FeatureCollection` with multiple features
+  - Automatically merged into single MultiPolygon for storage
+
+### Database Migration
+
+**Important**: If you have an existing database, run this migration to support MultiPolygon:
+
+```sql
+ALTER TABLE areas
+  ALTER COLUMN geom TYPE GEOMETRY(GEOMETRY, 4326);
+```
+
+This changes the geometry column from `POLYGON` to generic `GEOMETRY` type.
 
 ### Next Implementation Priority
 
 1. **Backend Worker Integration**: Connect route generation to actual processing
-2. **Real API Data**: Replace mock data with database queries
+2. **Coverage Algorithm**: Implement Chinese Postman algorithm
 3. **Authentication Flow**: Add Firebase Auth to frontend
-4. **Map Integration**: Implement Mapbox GL JS for real visualization
-5. **Coverage Algorithm**: Implement Chinese Postman algorithm
+4. **Route Chunking**: Split routes into navigable segments
+5. **Progress Tracking**: Real-time route coverage tracking
 
 ## Review Checklist for Claude
 

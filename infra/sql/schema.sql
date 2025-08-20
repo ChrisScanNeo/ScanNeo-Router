@@ -1,11 +1,11 @@
 -- Enable PostGIS extension for spatial operations
 CREATE EXTENSION IF NOT EXISTS postgis;
 
--- Areas table: stores coverage area polygons
+-- Areas table: stores coverage area polygons (supports both Polygon and MultiPolygon)
 CREATE TABLE IF NOT EXISTS areas(
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
-  geom GEOMETRY(POLYGON, 4326) NOT NULL,
+  geom GEOMETRY(GEOMETRY, 4326) NOT NULL,
   buffer_m INTEGER NOT NULL DEFAULT 0,
   params JSONB NOT NULL DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT now(),

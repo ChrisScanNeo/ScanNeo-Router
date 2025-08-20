@@ -6,7 +6,8 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import showToast from '@/components/Toast';
 
 // Get Mapbox token from environment variable
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
+// Next.js replaces process.env.NEXT_PUBLIC_* at build time
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
 interface MapboxMapProps {
   selectedLayer: 'areas' | 'routes' | 'coverage';
@@ -302,7 +303,7 @@ export function MapboxMap({ selectedLayer, selectedArea, selectedRoute }: Mapbox
             <h3 className="text-lg font-medium text-gray-900 mb-2">Map Configuration Required</h3>
             <p className="text-gray-500 mb-4">Mapbox access token not configured.</p>
             <p className="text-sm text-gray-400">
-              Add NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN to your .env.local file
+              Add NEXT_PUBLIC_MAPBOX_TOKEN to your .env.local file
             </p>
           </div>
         </div>

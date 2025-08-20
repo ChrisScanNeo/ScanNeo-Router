@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
+import showToast from '@/components/Toast';
 
 export default function RoutesPage() {
   return (
@@ -113,30 +114,67 @@ function RouteGenerator() {
   const [selectedArea, setSelectedArea] = useState('');
   const [chunkDuration, setChunkDuration] = useState(3600); // 1 hour default
   const [isGenerating, setIsGenerating] = useState(false);
+  const [areas, setAreas] = useState<{ id: string; name: string }[]>([]);
+  const [loadingAreas, setLoadingAreas] = useState(true);
 
-  // Mock areas data - this would come from API
-  const areas = [
-    { id: '1', name: 'Tower Hamlets' },
-    { id: '2', name: 'Camden' },
-    { id: '3', name: 'Westminster' },
-  ];
+  // Fetch real areas from API
+  useEffect(() => {
+    const fetchAreas = async () => {
+      try {
+        const response = await fetch('/api/areas');
+        const data = await response.json();
+        if (data.success && data.areas) {
+          setAreas(
+            data.areas.map((area: any) => ({
+              id: area.id,
+              name: area.name,
+            }))
+          );
+        }
+      } catch (error) {
+        console.error('Failed to fetch areas:', error);
+      } finally {
+        setLoadingAreas(false);
+      }
+    };
+    fetchAreas();
+  }, []);
 
   const handleGenerate = async () => {
     if (!selectedArea) return;
 
     setIsGenerating(true);
     try {
-      // TODO: Call actual API
-      console.log('Would generate route for area:', selectedArea, 'chunk duration:', chunkDuration);
+      const selectedAreaName = areas.find((a) => a.id === selectedArea)?.name || 'Unknown';
 
-      // Simulate processing
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Call the coverage generation API
+      const response = await fetch('/api/coverage/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          areaId: selectedArea,
+          chunkDuration: chunkDuration,
+        }),
+      });
 
-      alert(
-        `Route generation started for area!\n\nChunk Duration: ${chunkDuration / 60} minutes\n\nThis is a demo - actual generation requires backend worker.`
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to generate route');
+      }
+
+      showToast.success(
+        `Route generation started for ${selectedAreaName}! Job ID: ${data.jobId || 'pending'}`
       );
+
+      // Trigger refresh of jobs list
+      window.dispatchEvent(new Event('jobs-updated'));
     } catch (error) {
-      alert('Error generating route: ' + error);
+      showToast.error(
+        'Error generating route: ' + (error instanceof Error ? error.message : 'Unknown error')
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -154,8 +192,9 @@ function RouteGenerator() {
             value={selectedArea}
             onChange={(e) => setSelectedArea(e.target.value)}
             className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            disabled={loadingAreas}
           >
-            <option value="">Choose an area...</option>
+            <option value="">{loadingAreas ? 'Loading areas...' : 'Choose an area...'}</option>
             {areas.map((area) => (
               <option key={area.id} value={area.id}>
                 {area.name}
