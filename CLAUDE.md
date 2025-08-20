@@ -442,6 +442,20 @@ pnpm build
 
 ## Current Project Status (Updated 2025-08-19)
 
+### ⚠️ Deployment Status
+
+- **Vercel Deployment**: Currently failing due to path configuration issues
+- **Issue**: Vercel is looking for the project in doubled path `/apps/admin/apps/admin`
+- **Root Cause**: Conflict between monorepo structure and Vercel project settings
+- **Solution Needed**: Update Vercel project settings to correct root directory
+- **Local Build**: Works successfully with `npx next build` in `/apps/admin`
+- **Vercel Project Links**:
+  - Project Settings: https://vercel.com/chrisscanneos-projects/scan-neo-router/settings
+  - Alternative Project: https://vercel.com/chrisscanneos-projects/scanneo-router-admin/settings
+- **Configuration Files**:
+  - `/vercel.json`: Root configuration with `rootDirectory: "apps/admin"`
+  - `/apps/admin/vercel.json`: Admin-specific configuration
+
 ### ✅ Phase 1: Core Infrastructure (Complete)
 
 - Monorepo structure with Turborepo

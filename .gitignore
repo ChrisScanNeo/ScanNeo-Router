@@ -120,3 +120,4 @@ firebase-admin-key.json
 .eslintcache
 .stylelintcache
 .prettiercache
+.vercel
