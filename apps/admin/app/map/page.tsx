@@ -1,12 +1,31 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from '@/components/Header';
+import { MapboxMap } from '@/components/MapboxMap';
 
 export default function MapPage() {
   const [selectedLayer, setSelectedLayer] = useState<'areas' | 'routes' | 'coverage'>('areas');
   const [selectedArea, setSelectedArea] = useState('');
   const [selectedRoute, setSelectedRoute] = useState('');
+  const [areas, setAreas] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    // Fetch areas for the filter dropdown
+    const fetchAreas = async () => {
+      try {
+        const response = await fetch('/api/areas');
+        const data = await response.json();
+        if (data.success && data.areas) {
+          setAreas(data.areas);
+        }
+      } catch (error) {
+        console.error('Error fetching areas:', error);
+      }
+    };
+
+    fetchAreas();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -68,9 +87,11 @@ export default function MapPage() {
                   className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 >
                   <option value="">All areas</option>
-                  <option value="tower-hamlets">Tower Hamlets</option>
-                  <option value="camden">Camden</option>
-                  <option value="westminster">Westminster</option>
+                  {areas.map((area) => (
+                    <option key={area.id} value={area.id}>
+                      {area.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -242,85 +263,10 @@ function MapContainer({
   selectedRoute: string;
 }) {
   return (
-    <div className="h-full bg-gray-100 relative">
-      {/* Placeholder for actual map */}
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <svg
-            className="mx-auto h-16 w-16 text-gray-400 mb-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 4m0 13V4m-6 3l6-3"
-            />
-          </svg>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Interactive Map View</h3>
-          <p className="text-gray-500 mb-4">
-            Displaying: <span className="capitalize font-medium">{selectedLayer}</span>
-            {selectedArea && <span> • Area: {selectedArea}</span>}
-            {selectedRoute && <span> • Route: {selectedRoute}</span>}
-          </p>
-          <div className="text-sm text-gray-400">
-            <p>🗺️ Mapbox integration would render here</p>
-            <p>📍 Interactive markers and overlays</p>
-            <p>🛣️ Route visualization and area boundaries</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Map Controls */}
-      <div className="absolute top-4 right-4 space-y-2">
-        <button className="bg-white p-2 rounded-lg shadow-md hover:bg-gray-50">
-          <svg
-            className="h-5 w-5 text-gray-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-        </button>
-        <button className="bg-white p-2 rounded-lg shadow-md hover:bg-gray-50">
-          <svg
-            className="h-5 w-5 text-gray-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-          </svg>
-        </button>
-        <button className="bg-white p-2 rounded-lg shadow-md hover:bg-gray-50">
-          <svg
-            className="h-5 w-5 text-gray-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-            />
-          </svg>
-        </button>
-      </div>
-
-      {/* Status Indicator */}
-      <div className="absolute bottom-4 left-4">
-        <div className="bg-white px-3 py-2 rounded-lg shadow-md">
-          <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <span className="text-sm text-gray-600">Map Active</span>
-          </div>
-        </div>
-      </div>
-    </div>
+    <MapboxMap
+      selectedLayer={selectedLayer as 'areas' | 'routes' | 'coverage'}
+      selectedArea={selectedArea}
+      selectedRoute={selectedRoute}
+    />
   );
 }
