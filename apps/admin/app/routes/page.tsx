@@ -261,25 +261,99 @@ function RouteGenerator() {
 }
 
 function JobsList() {
-  // Mock jobs data
-  const jobs = [
-    {
-      id: 'job_1',
-      areaName: 'Tower Hamlets',
-      status: 'processing',
-      progress: 65,
-      stage: 'Calculating optimal route',
-      startedAt: new Date(Date.now() - 300000), // 5 minutes ago
-    },
-    {
-      id: 'job_2',
-      areaName: 'Camden',
-      status: 'queued',
-      progress: 0,
-      stage: 'Waiting in queue',
-      startedAt: null,
-    },
-  ];
+  const [jobs, setJobs] = useState<
+    Array<{
+      id: string;
+      routeId: string;
+      areaName: string;
+      status: string;
+      progress: number;
+      createdAt: string;
+    }>
+  >([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchJobs = async () => {
+    try {
+      const response = await fetch('/api/coverage/generate');
+      const data = await response.json();
+
+      if (data.success && data.routes) {
+        // Filter for pending/processing jobs and sort by creation time
+        const activeJobs = data.routes
+          .filter((r: { status: string }) => r.status === 'pending' || r.status === 'processing')
+          .map(
+            (r: {
+              jobId: string;
+              id: string;
+              areaName: string;
+              status: string;
+              createdAt: string;
+            }) => ({
+              id: r.jobId || `job_${r.id}`,
+              routeId: r.id,
+              areaName: r.areaName,
+              status: r.status,
+              progress: r.status === 'processing' ? 50 : 0,
+              createdAt: r.createdAt,
+            })
+          );
+        setJobs(activeJobs);
+      }
+    } catch (error) {
+      console.error('Failed to fetch jobs:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchJobs();
+
+    // Listen for job updates
+    const handleUpdate = () => fetchJobs();
+    window.addEventListener('jobs-updated', handleUpdate);
+
+    // Auto-refresh every 5 seconds for active jobs
+    const interval = setInterval(() => {
+      if (jobs.length > 0) {
+        fetchJobs();
+      }
+    }, 5000);
+
+    return () => {
+      window.removeEventListener('jobs-updated', handleUpdate);
+      clearInterval(interval);
+    };
+  }, [jobs.length]);
+
+  if (loading) {
+    return (
+      <div className="text-center py-4">
+        <svg
+          className="animate-spin h-6 w-6 text-[#00B140] mx-auto"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          ></circle>
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+          ></path>
+        </svg>
+        <p className="mt-2 text-sm text-gray-500">Loading jobs...</p>
+      </div>
+    );
+  }
 
   if (jobs.length === 0) {
     return (
@@ -306,14 +380,14 @@ function JobsList() {
   return (
     <div className="space-y-4">
       {jobs.map((job) => (
-        <div key={job.id} className="border border-gray-200 rounded-lg p-4">
+        <div key={job.id} className="border border-[#1C2F38]/20 rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
-            <h4 className="text-sm font-medium text-gray-900">{job.areaName}</h4>
+            <h4 className="text-sm font-medium text-[#1C2F38]">{job.areaName}</h4>
             <span
               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                 job.status === 'processing'
                   ? 'bg-blue-100 text-blue-800'
-                  : job.status === 'queued'
+                  : job.status === 'pending'
                     ? 'bg-yellow-100 text-yellow-800'
                     : job.status === 'completed'
                       ? 'bg-green-100 text-green-800'
@@ -326,12 +400,16 @@ function JobsList() {
 
           <div className="mb-2">
             <div className="flex justify-between text-sm text-gray-600 mb-1">
-              <span>{job.stage}</span>
+              <span>
+                {job.status === 'pending'
+                  ? 'Waiting to start...'
+                  : 'Processing route generation...'}
+              </span>
               <span>{job.progress}%</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                className="bg-[#00B140] h-2 rounded-full transition-all duration-300"
                 style={{ width: `${job.progress}%` }}
               ></div>
             </div>
@@ -339,11 +417,7 @@ function JobsList() {
 
           <div className="flex justify-between items-center text-xs text-gray-500">
             <span>Job ID: {job.id}</span>
-            <span>
-              {job.startedAt
-                ? `Started ${new Date(job.startedAt).toLocaleTimeString()}`
-                : 'Not started'}
-            </span>
+            <span>Created {new Date(job.createdAt).toLocaleTimeString()}</span>
           </div>
         </div>
       ))}
@@ -352,27 +426,73 @@ function JobsList() {
 }
 
 function RoutesList() {
-  // Mock routes data
-  const routes = [
-    {
-      id: 'route_1',
-      areaName: 'Tower Hamlets',
-      profile: 'driving-car',
-      totalDistance: 47.2,
-      estimatedTime: 8.5,
-      chunks: 12,
-      createdAt: new Date(Date.now() - 86400000), // 1 day ago
-    },
-    {
-      id: 'route_2',
-      areaName: 'Camden',
-      profile: 'driving-car',
-      totalDistance: 31.8,
-      estimatedTime: 5.2,
-      chunks: 8,
-      createdAt: new Date(Date.now() - 172800000), // 2 days ago
-    },
-  ];
+  const [routes, setRoutes] = useState<
+    Array<{
+      id: string;
+      areaName: string;
+      profile: string;
+      lengthM: number;
+      driveTimeS: number;
+      status: string;
+      createdAt: string;
+    }>
+  >([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchRoutes = async () => {
+    try {
+      const response = await fetch('/api/coverage/generate');
+      const data = await response.json();
+
+      if (data.success && data.routes) {
+        setRoutes(data.routes);
+      }
+    } catch (error) {
+      console.error('Failed to fetch routes:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRoutes();
+
+    // Listen for job updates (routes might complete)
+    const handleUpdate = () => fetchRoutes();
+    window.addEventListener('jobs-updated', handleUpdate);
+
+    return () => {
+      window.removeEventListener('jobs-updated', handleUpdate);
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="text-center py-8">
+        <svg
+          className="animate-spin h-8 w-8 text-[#00B140] mx-auto"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          ></circle>
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+          ></path>
+        </svg>
+        <p className="mt-2 text-sm text-gray-500">Loading routes...</p>
+      </div>
+    );
+  }
 
   if (routes.length === 0) {
     return (
@@ -398,25 +518,25 @@ function RoutesList() {
       <table className="min-w-full divide-y divide-gray-300">
         <thead className="bg-gray-50">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-[#4C4FA3] uppercase tracking-wider">
               Area
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-[#4C4FA3] uppercase tracking-wider">
+              Status
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-[#4C4FA3] uppercase tracking-wider">
               Profile
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-[#4C4FA3] uppercase tracking-wider">
               Distance
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Est. Time
+            <th className="px-6 py-3 text-left text-xs font-medium text-[#4C4FA3] uppercase tracking-wider">
+              Time
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Chunks
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-[#4C4FA3] uppercase tracking-wider">
               Created
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-[#4C4FA3] uppercase tracking-wider">
               Actions
             </th>
           </tr>
@@ -424,31 +544,53 @@ function RoutesList() {
         <tbody className="bg-white divide-y divide-gray-200">
           {routes.map((route) => (
             <tr key={route.id}>
-              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#1C2F38]">
                 {route.areaName}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                <span
+                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    route.status === 'completed'
+                      ? 'bg-green-100 text-green-800'
+                      : route.status === 'processing'
+                        ? 'bg-blue-100 text-blue-800'
+                        : route.status === 'pending'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-gray-100 text-gray-800'
+                  }`}
+                >
+                  {route.status || 'pending'}
+                </span>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{route.profile}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {route.totalDistance} km
+                {route.lengthM > 0 ? `${(route.lengthM / 1000).toFixed(1)} km` : '—'}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {route.estimatedTime} hrs
+                {route.driveTimeS > 0 ? `${(route.driveTimeS / 3600).toFixed(1)} hrs` : '—'}
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{route.chunks}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {route.createdAt.toLocaleDateString()}
+                {new Date(route.createdAt).toLocaleDateString()}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                <Link href={`/routes/${route.id}`} className="text-blue-600 hover:text-blue-900">
-                  View
-                </Link>
-                <Link
-                  href={`/map?route=${route.id}`}
-                  className="text-green-600 hover:text-green-900"
-                >
-                  Map
-                </Link>
-                <button className="text-purple-600 hover:text-purple-900">Download</button>
+                {route.status === 'completed' ? (
+                  <>
+                    <Link
+                      href={`/routes/${route.id}`}
+                      className="text-[#00B140] hover:text-[#00A038]"
+                    >
+                      View
+                    </Link>
+                    <Link
+                      href={`/map?route=${route.id}`}
+                      className="text-[#4C4FA3] hover:text-[#3A3D80]"
+                    >
+                      Map
+                    </Link>
+                  </>
+                ) : (
+                  <span className="text-gray-400">Processing...</span>
+                )}
               </td>
             </tr>
           ))}
