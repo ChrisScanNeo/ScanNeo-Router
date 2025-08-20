@@ -2,6 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { sql } from '@/lib/db';
 
+// Type definitions
+interface RouteParams {
+  profile?: string;
+  includeService?: boolean;
+  chunkDuration?: number;
+  jobId?: string;
+  status?: string;
+  createdAt?: string;
+  completedAt?: string;
+  progress?: number;
+}
+
 // Request validation schema
 const GenerateRouteSchema = z.object({
   areaId: z.string().uuid('Invalid area ID'),
@@ -34,7 +46,7 @@ export async function POST(req: NextRequest) {
     }
 
     const area = areaResult[0];
-    const params = area.params as any;
+    const params = area.params as RouteParams;
     
     // For now, create a simple mock route generation
     // In production, this would:
@@ -149,8 +161,8 @@ export async function GET(req: NextRequest) {
           profile: r.profile,
           lengthM: r.length_m,
           driveTimeS: r.drive_time_s,
-          status: (r.params as any)?.status || 'completed',
-          jobId: (r.params as any)?.jobId,
+          status: (r.params as RouteParams)?.status || 'completed',
+          jobId: (r.params as RouteParams)?.jobId,
           createdAt: r.created_at
         }))
       });
@@ -174,7 +186,7 @@ export async function GET(req: NextRequest) {
     }
 
     const route = routes[0];
-    const params = route.params as any;
+    const params = route.params as RouteParams;
 
     return NextResponse.json({
       success: true,
