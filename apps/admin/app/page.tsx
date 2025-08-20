@@ -1,21 +1,32 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white shadow-sm border-b border-[#1C2F38]/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
+          <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">ScanNeo Router</h1>
-              <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+              <h1 className="text-2xl font-bold text-[#4C4FA3]">ScanNeo Router</h1>
+              <span className="ml-2 px-2 py-1 bg-[#00B140]/10 text-[#00B140] text-xs font-medium rounded-full">
                 Admin Dashboard
               </span>
             </div>
+            <div className="flex-shrink-0">
+              <Image
+                src="/scanneo-logo.svg"
+                alt="ScanNeo"
+                width={150}
+                height={40}
+                className="h-10 w-auto"
+                priority
+              />
+            </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-500">Phase 2 Complete</span>
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span className="text-sm text-gray-500">System Online</span>
+              <div className="w-2 h-2 bg-[#00B140] rounded-full animate-pulse"></div>
             </div>
           </div>
         </div>
@@ -26,11 +37,11 @@ export default function Home() {
         <div className="px-4 py-6 sm:px-0">
           {/* Status Cards */}
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-            <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-[#1C2F38]/10">
               <div className="p-5">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                    <div className="w-8 h-8 bg-[#00B140] rounded-full flex items-center justify-center">
                       <span className="text-white text-sm font-medium">✓</span>
                     </div>
                   </div>
@@ -44,11 +55,11 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-[#1C2F38]/10">
               <div className="p-5">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                    <div className="w-8 h-8 bg-[#4C4FA3] rounded-full flex items-center justify-center">
                       <span className="text-white text-sm font-medium">DB</span>
                     </div>
                   </div>
@@ -62,11 +73,11 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-[#1C2F38]/10">
               <div className="p-5">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
+                    <div className="w-8 h-8 bg-[#A6CE39] rounded-full flex items-center justify-center">
                       <span className="text-white text-sm font-medium">🗺️</span>
                     </div>
                   </div>
@@ -80,11 +91,11 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-[#1C2F38]/10">
               <div className="p-5">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
+                    <div className="w-8 h-8 bg-[#1C2F38] rounded-full flex items-center justify-center">
                       <span className="text-white text-sm font-medium">🚗</span>
                     </div>
                   </div>
@@ -100,16 +111,16 @@ export default function Home() {
           </div>
 
           {/* Quick Actions */}
-          <div className="bg-white shadow rounded-lg mb-8">
+          <div className="bg-white shadow-sm rounded-lg border border-[#1C2F38]/10 mb-8">
             <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Quick Actions</h3>
+              <h3 className="text-lg leading-6 font-semibold text-[#4C4FA3] mb-4">Quick Actions</h3>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Link
                   href="/areas"
-                  className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-[#00B140] border border-[#1C2F38]/20 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   <div>
-                    <span className="rounded-lg inline-flex p-3 bg-blue-50 text-blue-700 ring-4 ring-white">
+                    <span className="rounded-lg inline-flex p-3 bg-[#4C4FA3]/10 text-[#4C4FA3] ring-4 ring-white">
                       <svg
                         className="h-6 w-6"
                         fill="none"
@@ -126,7 +137,7 @@ export default function Home() {
                     </span>
                   </div>
                   <div className="mt-4">
-                    <h3 className="text-lg font-medium">
+                    <h3 className="text-lg font-medium text-[#4C4FA3]">
                       <span className="absolute inset-0" aria-hidden="true" />
                       Import Area
                     </h3>
@@ -138,10 +149,10 @@ export default function Home() {
 
                 <Link
                   href="/routes"
-                  className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-[#00B140] border border-[#1C2F38]/20 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   <div>
-                    <span className="rounded-lg inline-flex p-3 bg-green-50 text-green-700 ring-4 ring-white">
+                    <span className="rounded-lg inline-flex p-3 bg-[#00B140]/10 text-[#00B140] ring-4 ring-white">
                       <svg
                         className="h-6 w-6"
                         fill="none"
@@ -158,7 +169,7 @@ export default function Home() {
                     </span>
                   </div>
                   <div className="mt-4">
-                    <h3 className="text-lg font-medium">
+                    <h3 className="text-lg font-medium text-[#4C4FA3]">
                       <span className="absolute inset-0" aria-hidden="true" />
                       Generate Routes
                     </h3>
@@ -170,10 +181,10 @@ export default function Home() {
 
                 <Link
                   href="/map"
-                  className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-[#00B140] border border-[#1C2F38]/20 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   <div>
-                    <span className="rounded-lg inline-flex p-3 bg-purple-50 text-purple-700 ring-4 ring-white">
+                    <span className="rounded-lg inline-flex p-3 bg-[#A6CE39]/10 text-[#A6CE39] ring-4 ring-white">
                       <svg
                         className="h-6 w-6"
                         fill="none"
@@ -190,7 +201,7 @@ export default function Home() {
                     </span>
                   </div>
                   <div className="mt-4">
-                    <h3 className="text-lg font-medium">
+                    <h3 className="text-lg font-medium text-[#4C4FA3]">
                       <span className="absolute inset-0" aria-hidden="true" />
                       View Map
                     </h3>
@@ -204,9 +215,9 @@ export default function Home() {
           </div>
 
           {/* System Information */}
-          <div className="bg-white shadow rounded-lg">
+          <div className="bg-white shadow-sm rounded-lg border border-[#1C2F38]/10">
             <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+              <h3 className="text-lg leading-6 font-semibold text-[#4C4FA3] mb-4">
                 System Information
               </h3>
               <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">

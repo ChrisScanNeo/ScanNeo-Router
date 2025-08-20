@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
+import { Header } from '@/components/Header';
 
 export default function MapPage() {
   const [selectedLayer, setSelectedLayer] = useState<'areas' | 'routes' | 'coverage'>('areas');
@@ -10,30 +10,13 @@ export default function MapPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center">
-              <Link href="/" className="text-blue-600 hover:text-blue-500">
-                <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                  />
-                </svg>
-              </Link>
-              <h1 className="text-2xl font-bold text-gray-900">Interactive Map</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-500">Visualize Areas & Routes</span>
-              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header
+        title="Interactive Map"
+        subtitle="Visualize Areas & Routes"
+        showBackButton={true}
+        backHref="/"
+        status="online"
+      />
 
       {/* Map Container */}
       <div className="flex h-[calc(100vh-88px)]">

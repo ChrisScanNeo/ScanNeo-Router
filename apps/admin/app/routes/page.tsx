@@ -1,35 +1,19 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
+import Link from 'next/link';
+import { Header } from '@/components/Header';
 
 export default function RoutesPage() {
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center">
-              <Link href="/" className="text-blue-600 hover:text-blue-500">
-                <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                  />
-                </svg>
-              </Link>
-              <h1 className="text-2xl font-bold text-gray-900">Coverage Routes</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-500">Generate & Manage Routes</span>
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header
+        title="Coverage Routes"
+        subtitle="Generate & Manage Routes"
+        showBackButton={true}
+        backHref="/"
+        status="online"
+      />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">

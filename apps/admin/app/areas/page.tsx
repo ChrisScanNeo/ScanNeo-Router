@@ -1,43 +1,30 @@
 'use client';
 
-import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { Header } from '@/components/Header';
+import showToast from '@/components/Toast';
 
 export default function AreasPage() {
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center">
-              <Link href="/" className="text-blue-600 hover:text-blue-500">
-                <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                  />
-                </svg>
-              </Link>
-              <h1 className="text-2xl font-bold text-gray-900">Coverage Areas</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-500">Import & Manage Areas</span>
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header
+        title="Coverage Areas"
+        subtitle="Import & Manage Areas"
+        showBackButton={true}
+        backHref="/"
+        status="online"
+      />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {/* Import Section */}
-          <div className="bg-white shadow rounded-lg mb-8">
+          <div className="bg-white shadow-sm rounded-lg border border-[#1C2F38]/10 mb-8">
             <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Import New Area</h3>
+              <h3 className="text-lg leading-6 font-semibold text-[#4C4FA3] mb-4">
+                Import New Area
+              </h3>
               <p className="text-sm text-gray-500 mb-6">
                 Upload a GeoJSON file containing polygon boundaries to define a new coverage area.
               </p>
@@ -47,13 +34,13 @@ export default function AreasPage() {
           </div>
 
           {/* Areas List */}
-          <div className="bg-white shadow rounded-lg">
+          <div className="bg-white shadow-sm rounded-lg border border-[#1C2F38]/10">
             <div className="px-4 py-5 sm:p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg leading-6 font-medium text-gray-900">Existing Areas</h3>
+                <h3 className="text-lg leading-6 font-semibold text-[#4C4FA3]">Existing Areas</h3>
                 <button
                   onClick={() => window.dispatchEvent(new Event('areas-updated'))}
-                  className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="inline-flex items-center px-3 py-2 border border-[#1C2F38]/20 shadow-sm text-sm leading-4 font-medium rounded-md text-[#4C4FA3] bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00B140] transition-colors"
                 >
                   <svg
                     className="h-4 w-4 mr-2"
@@ -164,7 +151,7 @@ function AreaImporter() {
         throw new Error(data.error || 'Failed to import area');
       }
 
-      alert(`Area "${areaName}" imported successfully!`);
+      showToast.success(`Area "${areaName}" imported successfully!`);
       setError(null);
 
       // Trigger a refresh of the areas list
@@ -190,9 +177,9 @@ function AreaImporter() {
     <div className="space-y-6">
       {/* File Upload */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">GeoJSON File</label>
+        <label className="block text-sm font-medium text-[#4C4FA3] mb-2">GeoJSON File</label>
         <div
-          className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 ${isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'} border-dashed rounded-md transition-colors`}
+          className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 ${isDragging ? 'border-[#00B140] bg-[#00B140]/5' : 'border-[#1C2F38]/20'} border-dashed rounded-md transition-colors`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -214,7 +201,7 @@ function AreaImporter() {
             <div className="flex text-sm text-gray-600">
               <label
                 htmlFor="file-upload"
-                className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
+                className="relative cursor-pointer bg-white rounded-md font-medium text-[#00B140] hover:text-[#00A038] focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-[#00B140] transition-colors"
               >
                 <span>Upload a file</span>
                 <input
@@ -240,7 +227,7 @@ function AreaImporter() {
       {/* Area Configuration */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <div>
-          <label htmlFor="area-name" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="area-name" className="block text-sm font-medium text-[#4C4FA3]">
             Area Name
           </label>
           <input
@@ -249,13 +236,13 @@ function AreaImporter() {
             id="area-name"
             value={areaName}
             onChange={(e) => setAreaName(e.target.value)}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            className="mt-1 block w-full px-3 py-2 border border-[#1C2F38]/20 rounded-md shadow-sm focus:ring-[#00B140] focus:border-[#00B140] sm:text-sm transition-colors"
             placeholder="e.g., Tower Hamlets"
           />
         </div>
 
         <div>
-          <label htmlFor="buffer-distance" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="buffer-distance" className="block text-sm font-medium text-[#4C4FA3]">
             Buffer Distance (meters)
           </label>
           <input
@@ -264,14 +251,14 @@ function AreaImporter() {
             id="buffer-distance"
             value={bufferDistance}
             onChange={(e) => setBufferDistance(parseInt(e.target.value) || 0)}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            className="mt-1 block w-full px-3 py-2 border border-[#1C2F38]/20 rounded-md shadow-sm focus:ring-[#00B140] focus:border-[#00B140] sm:text-sm transition-colors"
             placeholder="0"
             min="0"
           />
         </div>
 
         <div>
-          <label htmlFor="profile" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="profile" className="block text-sm font-medium text-[#4C4FA3]">
             Routing Profile
           </label>
           <select
@@ -279,7 +266,7 @@ function AreaImporter() {
             name="profile"
             value={profile}
             onChange={(e) => setProfile(e.target.value)}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            className="mt-1 block w-full px-3 py-2 border border-[#1C2F38]/20 rounded-md shadow-sm focus:ring-[#00B140] focus:border-[#00B140] sm:text-sm transition-colors"
           >
             <option value="driving-car">Driving (Car)</option>
             <option value="driving-hgv">Driving (HGV)</option>
@@ -295,7 +282,7 @@ function AreaImporter() {
             type="checkbox"
             checked={includeService}
             onChange={(e) => setIncludeService(e.target.checked)}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            className="h-4 w-4 text-[#00B140] focus:ring-[#00B140] border-[#1C2F38]/20 rounded"
           />
           <label htmlFor="include-service" className="ml-2 block text-sm text-gray-900">
             Include Service Roads
@@ -308,7 +295,7 @@ function AreaImporter() {
         <button
           onClick={handleImport}
           disabled={!selectedFile || !areaName || isUploading}
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#00B140] hover:bg-[#00A038] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00B140] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
         >
           {isUploading ? (
             <>
@@ -385,15 +372,15 @@ function AreasList() {
       });
 
       if (response.ok) {
-        alert(`Area "${name}" deleted successfully`);
+        showToast.success(`Area "${name}" deleted successfully`);
         fetchAreas(); // Refresh the list
       } else {
         const data = await response.json();
-        alert(`Failed to delete area: ${data.error}`);
+        showToast.error(`Failed to delete area: ${data.error}`);
       }
     } catch (err) {
       console.error('Error deleting area:', err);
-      alert('Failed to delete area');
+      showToast.error('Failed to delete area');
     }
   };
 
@@ -413,7 +400,7 @@ function AreasList() {
     return (
       <div className="text-center py-8">
         <svg
-          className="animate-spin h-8 w-8 text-blue-600 mx-auto"
+          className="animate-spin h-8 w-8 text-[#00B140] mx-auto"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
@@ -457,7 +444,7 @@ function AreasList() {
         <p className="mt-1 text-sm text-gray-500">{error}</p>
         <button
           onClick={fetchAreas}
-          className="mt-4 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+          className="mt-4 inline-flex items-center px-3 py-2 border border-[#1C2F38]/20 shadow-sm text-sm leading-4 font-medium rounded-md text-[#4C4FA3] bg-white hover:bg-gray-50 transition-colors"
         >
           Retry
         </button>
@@ -494,19 +481,19 @@ function AreasList() {
       <table className="min-w-full divide-y divide-gray-300">
         <thead className="bg-gray-50">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-[#4C4FA3] uppercase tracking-wider">
               Name
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-[#4C4FA3] uppercase tracking-wider">
               Profile
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-[#4C4FA3] uppercase tracking-wider">
               Buffer
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-[#4C4FA3] uppercase tracking-wider">
               Created
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-[#4C4FA3] uppercase tracking-wider">
               Actions
             </th>
           </tr>
@@ -514,7 +501,7 @@ function AreasList() {
         <tbody className="bg-white divide-y divide-gray-200">
           {areas.map((area) => (
             <tr key={area.id}>
-              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#1C2F38]">
                 {area.name}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{area.profile}</td>
@@ -526,12 +513,15 @@ function AreasList() {
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                 <div className="flex space-x-3">
-                  <Link href={`/areas/${area.id}`} className="text-blue-600 hover:text-blue-900">
+                  <Link
+                    href={`/areas/${area.id}`}
+                    className="text-[#00B140] hover:text-[#00A038] transition-colors"
+                  >
                     View
                   </Link>
                   <button
                     onClick={() => handleDelete(area.id, area.name)}
-                    className="text-red-600 hover:text-red-900"
+                    className="text-red-500 hover:text-red-700 transition-colors"
                   >
                     Delete
                   </button>
