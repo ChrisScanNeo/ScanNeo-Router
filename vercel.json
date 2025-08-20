@@ -1,8 +1,0 @@
-{
-  "rootDirectory": "apps/admin",
-  "framework": "nextjs",
-  "buildCommand": "cd apps/admin && npx next build",
-  "installCommand": "pnpm install --no-frozen-lockfile",
-  "outputDirectory": "apps/admin/.next",
-  "regions": ["lhr1"]
-}
