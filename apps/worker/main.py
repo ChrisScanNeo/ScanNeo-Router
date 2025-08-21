@@ -1,7 +1,7 @@
 """
 ScanNeo Worker Service
 Main FastAPI application for route processing
-Version: 1.0.0
+Version: 1.0.1
 """
 
 import asyncio
