@@ -361,26 +361,56 @@ The system is considered fully functional when:
 
 ## Test Execution Log
 
-| Date | Tester | Test Scenario | Result | Notes |
-| ---- | ------ | ------------- | ------ | ----- |
-|      |        |               |        |       |
-|      |        |               |        |       |
-|      |        |               |        |       |
+| Date       | Tester | Test Scenario           | Result  | Notes                                           |
+| ---------- | ------ | ----------------------- | ------- | ----------------------------------------------- |
+| 2025-08-21 | Chris  | Area Import (Baffins 3) | ✅ PASS | Successfully imported GeoJSON area              |
+| 2025-08-21 | Chris  | Route Generation        | ✅ PASS | Route created, worker picked up job             |
+| 2025-08-21 | Chris  | Worker Processing       | ✅ PASS | Completed in ~6 minutes for 59.7km route        |
+| 2025-08-21 | Chris  | Route Visualization     | ✅ PASS | Route displays on map                           |
+| 2025-08-21 | Chris  | Route Export            | ✅ PASS | GeoJSON and GPX export working                  |
+| 2025-08-21 | Chris  | Stuck Job Recovery      | ✅ PASS | Reset endpoint successfully recovered stuck job |
+| 2025-08-21 | Chris  | Route Quality           | ❌ FAIL | Routes jump across city, not following roads    |
 
 ## Issues Found
 
-| ID  | Severity | Description | Status | Resolution |
-| --- | -------- | ----------- | ------ | ---------- |
-|     |          |             |        |            |
-|     |          |             |        |            |
+| ID   | Severity | Description                                                 | Status   | Resolution                            |
+| ---- | -------- | ----------------------------------------------------------- | -------- | ------------------------------------- |
+| #001 | HIGH     | Routes contain jumps - not following connected road network | Open     | Need to fix route algorithm           |
+| #002 | HIGH     | Routes cross areas without using roads (straight lines)     | Open     | Missing road connectivity validation  |
+| #003 | MEDIUM   | Route sequence not optimized for continuous driving         | Open     | Need proper Eulerian path calculation |
+| #004 | LOW      | Old jobs stuck in processing state                          | Resolved | Added admin reset endpoint            |
+
+## Route Quality Issues (Critical - Needs Fix)
+
+### Current Problems
+
+1. **Disconnected Segments**: Route jumps between non-connected road segments
+2. **No Road Following**: Creates straight lines across the city instead of following roads
+3. **Improper Sequencing**: Does not create a continuous driveable path
+4. **Missing Turn-by-Turn**: No proper navigation between segments
+
+### Root Causes
+
+1. **Algorithm Issue**: Chinese Postman implementation not creating proper Eulerian path
+2. **Graph Construction**: Road network graph may not be properly connected
+3. **Missing Routing**: No actual routing between disconnected components
+4. **Coordinate Ordering**: LineString coordinates not in driving sequence
+
+### Required Fixes
+
+1. **Validate Graph Connectivity**: Ensure all streets form connected components
+2. **Use Routing Service**: Route between disconnected segments using OpenRouteService
+3. **Proper Path Construction**: Build continuous path that can be driven
+4. **Add Route Validation**: Check route continuity before saving
 
 ## Recommendations
 
-1. **Priority 1**: Ensure worker service stays healthy under load
-2. **Priority 2**: Add progress percentage calculation
-3. **Priority 3**: Implement chunks table for better route segmentation
-4. **Future**: Add authentication flow
-5. **Future**: Implement coverage tracking
+1. **Priority 1**: Fix route generation algorithm for continuous paths
+2. **Priority 2**: Add route validation and quality checks
+3. **Priority 3**: Implement proper turn-by-turn navigation
+4. **Priority 4**: Add progress percentage calculation
+5. **Future**: Add authentication flow
+6. **Future**: Implement coverage tracking
 
 ## Conclusion
 
