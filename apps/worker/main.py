@@ -116,9 +116,11 @@ async def health():
     return {
         "status": status,
         "service": "scanneo-worker",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "database": db_healthy,
-        "environment": settings.environment if settings else "unknown"
+        "environment": settings.environment if settings else "unknown",
+        "has_database_url": "DATABASE_URL" in os.environ,
+        "config_loaded": settings is not None
     }
 
 
