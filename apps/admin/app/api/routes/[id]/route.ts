@@ -12,15 +12,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         r.id,
         r.area_id,
         a.name as area_name,
-        r.status,
-        r.progress,
         r.created_at,
         r.updated_at,
         r.profile,
         r.params,
-        r.metadata,
-        r.error,
-        ST_AsGeoJSON(r.geojson)::json as geojson,
+        ST_AsGeoJSON(r.geom)::json as geojson,
         r.length_m,
         r.drive_time_s
       FROM coverage_routes r
@@ -33,27 +29,47 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Route not found' }, { status: 404 });
     }
 
-    // Fetch chunks for this route
-    const chunks = await sql`
-      SELECT 
-        id,
-        chunk_index,
-        ST_AsGeoJSON(geojson)::json as geojson,
-        length_m,
-        duration_s
-      FROM coverage_chunks
-      WHERE route_id = ${id}
-      ORDER BY chunk_index
-    `;
+    // Fetch chunks for this route (table might not exist yet)
+    let chunks = [];
+    try {
+      chunks = await sql`
+        SELECT 
+          id,
+          idx as chunk_index,
+          ST_AsGeoJSON(geom)::json as geojson,
+          length_m,
+          time_s as duration_s
+        FROM chunks
+        WHERE route_id = ${id}
+        ORDER BY idx
+      `;
+    } catch (chunksError) {
+      // coverage_chunks table might not exist yet, continue without chunks
+      console.warn('Could not fetch chunks:', chunksError);
+    }
+
+    // Extract status info from params JSONB
+    const routeRecord = route[0];
+    const routeParams = routeRecord.params as any;
 
     const routeData = {
-      ...route[0],
+      ...routeRecord,
+      status: routeParams?.status || 'pending',
+      progress: routeParams?.progress || 0,
+      error: routeParams?.error || null,
+      metadata: routeParams?.metadata || {},
       chunks,
     };
 
     return NextResponse.json(routeData);
   } catch (error) {
     console.error('Error fetching route:', error);
-    return NextResponse.json({ error: 'Failed to fetch route details' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to fetch route details',
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
   }
 }
