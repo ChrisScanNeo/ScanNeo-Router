@@ -26,6 +26,12 @@ shapely==2.0.2
 geojson==3.1.0
 pyproj==3.6.1
 
+# Scientific computing (required by osmnx)
+numpy==1.26.2
+scipy==1.11.4
+pandas==2.1.4
+geopandas==0.14.1
+
 # OpenStreetMap data
 osmnx==1.8.0
 networkx==3.2.1
