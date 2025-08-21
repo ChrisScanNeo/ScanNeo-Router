@@ -12,6 +12,7 @@ from app.database import db
 from app.config import settings
 from .osm_fetcher import OSMFetcher
 from .route_calculator import RouteCalculator
+from .ors_client import ORSClient
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,10 @@ class JobProcessor:
     
     def __init__(self):
         self.osm_fetcher = OSMFetcher()
-        self.route_calculator = RouteCalculator()
+        # Initialize ORS client with Redis cache if available
+        cache = None  # TODO: Add Redis cache when available
+        self.ors_client = ORSClient(cache=cache)
+        self.route_calculator = RouteCalculator(ors_client=self.ors_client, cache=cache)
         self.running = False
     
     async def start(self):
@@ -92,14 +96,18 @@ class JobProcessor:
                 'stage': 'Calculating optimal coverage route'
             })
             
-            # 3. Calculate optimal route
-            route_result = self.route_calculator.calculate_route(
+            # 3. Calculate optimal route with proper CPP algorithm
+            route_result = await self.route_calculator.calculate_route(
                 streets,
                 profile=job.get('profile', 'driving-car')
             )
             
             if not route_result:
                 raise ValueError("Failed to calculate route")
+            
+            # Extract diagnostics
+            diagnostics = route_result.get('diagnostics', {})
+            is_valid = route_result.get('valid', False)
             
             logger.info(f"Calculated route: {route_result['length_m']}m, {route_result['drive_time_s']}s")
             
@@ -110,16 +118,19 @@ class JobProcessor:
             
             # 4. Split into chunks
             chunk_duration = params.get('chunkDuration', 3600)
+            route_coords = route_result['geometry']['coordinates']
             chunks = self.route_calculator.split_into_chunks(
-                route_result['route'],
-                chunk_duration
+                route_coords,
+                chunk_duration,
+                profile=job.get('profile', 'driving-car')
             )
             
             logger.info(f"Generated {len(chunks)} chunks")
             
-            # Update progress: Saving results
+            # Update progress: Saving results with diagnostics
             db.update_job_status(job_id, 'processing', 90, metadata={
-                'stage': 'Saving route to database'
+                'stage': 'Saving route to database',
+                'diagnostics': diagnostics
             })
             
             # 5. Save results
@@ -131,14 +142,30 @@ class JobProcessor:
                 chunks
             )
             
-            # Mark as completed
-            db.update_job_status(job_id, 'completed', 100, metadata={
+            # Determine final status based on validation
+            final_status = 'completed' if is_valid else 'completed_with_warnings'
+            
+            # Mark as completed with full diagnostics
+            db.update_job_status(job_id, final_status, 100, metadata={
                 'stage': 'Route generation complete',
+                'valid': is_valid,
                 'stats': {
                     'streets': len(streets['features']),
                     'length_km': round(route_result['length_m'] / 1000, 1),
                     'time_hours': round(route_result['drive_time_s'] / 3600, 1),
                     'chunks': len(chunks)
+                },
+                'diagnostics': {
+                    'graph_nodes': diagnostics.get('graph_nodes', 0),
+                    'graph_edges': diagnostics.get('graph_edges', 0),
+                    'components_before': diagnostics.get('components_before', 0),
+                    'components_after': diagnostics.get('components_after', 0),
+                    'odd_nodes': diagnostics.get('odd_nodes', 0),
+                    'matched_pairs': diagnostics.get('matched_pairs', 0),
+                    'deadhead_ratio': diagnostics.get('deadhead_ratio', 0),
+                    'max_gap_m': diagnostics.get('max_gap_m', 0),
+                    'continuity_valid': diagnostics.get('continuity_valid', True),
+                    'violations': diagnostics.get('continuity_violations', 0)
                 }
             })
             
