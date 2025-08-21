@@ -138,7 +138,7 @@ jobs:
     needs: integration-tests
     strategy:
       matrix:
-        app: [admin, navigator, worker]
+        app: [navigator, worker]
     steps:
       - uses: actions/checkout@v4
 
@@ -190,11 +190,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --no-optional=false
 
-      - name: Download admin build
-        uses: actions/download-artifact@v4
-        with:
-          name: admin-build
-          path: apps/admin/.next
+      # Skip downloading admin build - Vercel handles admin deployment
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
