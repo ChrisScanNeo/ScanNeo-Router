@@ -1,5 +1,6 @@
 'use client';
 
+// Route details page for viewing individual route information
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
