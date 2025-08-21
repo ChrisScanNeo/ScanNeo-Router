@@ -158,7 +158,7 @@ jobs:
         run: pnpm --filter @scanneo/${{ matrix.app }} build
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.app }}-build
           path: |
@@ -191,7 +191,7 @@ jobs:
         run: pnpm install --frozen-lockfile --no-optional=false
 
       - name: Download admin build
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: admin-build
           path: apps/admin/.next
@@ -204,7 +204,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: playwright-results-${{ matrix.browser }}
           path: scripts/test-results/
@@ -246,7 +246,7 @@ jobs:
 
       - name: Upload test artifacts
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: detox-artifacts
           path: apps/navigator/artifacts/
@@ -384,7 +384,7 @@ jobs:
           k6 run scripts/performance/load-test.js --env BASE_URL=https://staging.scanneo-router.com
 
       - name: Upload performance results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: performance-results
           path: performance-results/
