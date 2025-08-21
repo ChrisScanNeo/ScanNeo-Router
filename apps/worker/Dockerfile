@@ -25,6 +25,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
+# TEMPORARY: Copy .env file for testing (REMOVE IN PRODUCTION!)
+COPY .env .env
+
 # Create non-root user for security
 RUN useradd -m -u 1000 worker && chown -R worker:worker /app
 USER worker
@@ -38,6 +41,12 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 # Set environment variable for port (Cloud Run sets this)
 ENV PORT=8080
+
+# Temporary: Set environment variables directly for testing
+ENV ENVIRONMENT=production
+ENV LOG_LEVEL=INFO
+ENV POLL_INTERVAL=30
+ENV JOB_TIMEOUT=3600
 
 # Run the application with logging
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--log-level", "info"]
