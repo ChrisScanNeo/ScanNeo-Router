@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     
     # Service info
     service_name: str = "scanneo-worker"
-    service_version: str = "1.0.0"
+    service_version: str = "1.0.2"
     
     class Config:
         env_file = '.env'

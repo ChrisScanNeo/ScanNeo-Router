@@ -1,7 +1,8 @@
 """
 ScanNeo Worker Service
 Main FastAPI application for route processing
-Version: 1.0.1
+Version: 1.0.2
+Last updated: 2025-08-21
 """
 
 import asyncio
@@ -85,7 +86,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="scanneo-worker" if not settings else settings.service_name,
     description="Coverage route generation worker service",
-    version="1.0.0" if not settings else settings.service_version,
+    version="1.0.2" if not settings else settings.service_version,
     lifespan=lifespan
 )
 
