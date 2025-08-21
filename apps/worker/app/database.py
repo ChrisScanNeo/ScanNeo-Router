@@ -27,14 +27,25 @@ class Database:
     def _connect(self):
         """Initialize connection pool"""
         try:
+            # Parse database URL and add SSL if needed
+            db_url = settings.database_url
+            
+            # Neon requires SSL - add it if not present
+            if 'neon.tech' in db_url and 'sslmode=' not in db_url:
+                if '?' in db_url:
+                    db_url += '&sslmode=require'
+                else:
+                    db_url += '?sslmode=require'
+            
             self.pool = SimpleConnectionPool(
                 1, 5,  # min and max connections
-                settings.database_url,
+                db_url,
                 cursor_factory=RealDictCursor
             )
             logger.info("Database connection pool created")
         except Exception as e:
             logger.error(f"Failed to create database pool: {e}")
+            logger.error(f"Database URL pattern: {settings.database_url[:20]}...") 
             raise
     
     @contextmanager

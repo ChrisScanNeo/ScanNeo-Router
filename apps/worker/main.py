@@ -34,8 +34,13 @@ try:
     # Update logging level from settings
     logging.getLogger().setLevel(getattr(logging, settings.log_level))
     logger.info("Configuration loaded successfully")
+    logger.info(f"Environment: {settings.environment}")
+    logger.info(f"Database URL present: {bool(settings.database_url)}")
 except Exception as e:
     logger.error(f"Failed to load configuration: {e}")
+    logger.error(f"Error type: {type(e).__name__}")
+    import traceback
+    logger.error(f"Traceback: {traceback.format_exc()}")
     logger.error("Worker will run in degraded mode (health check only)")
     settings = None
     db = None
