@@ -16,7 +16,8 @@ class Settings(BaseSettings):
     database_url: str = Field(..., env='DATABASE_URL')
     
     # OpenRouteService - REQUIRED for route generation
-    ors_api_key: str = Field(..., env='ORS_API_KEY')
+    # Will use a default empty string if not set, but will warn
+    ors_api_key: str = Field('', env='ORS_API_KEY')
     
     # OpenRouteService endpoints
     ors_directions_url: str = Field(
@@ -63,10 +64,11 @@ class Settings(BaseSettings):
     @validator('ors_api_key')
     def validate_ors_key(cls, v):
         if not v or v == "":
-            print("ERROR: ORS_API_KEY environment variable not set or empty", file=sys.stderr)
-            print("Please set ORS_API_KEY to a valid OpenRouteService API key", file=sys.stderr)
-            print("Get one at: https://openrouteservice.org/dev/#/signup", file=sys.stderr)
-            sys.exit(1)
+            print("WARNING: ORS_API_KEY environment variable not set or empty", file=sys.stderr)
+            print("Route generation will work but may have gaps without ORS routing", file=sys.stderr)
+            print("To enable full routing, set ORS_API_KEY from: https://openrouteservice.org/dev/#/signup", file=sys.stderr)
+            return ""
+        print(f"✓ ORS API key configured", file=sys.stderr)
         return v
     
     class Config:
@@ -75,10 +77,5 @@ class Settings(BaseSettings):
         case_sensitive = False
 
 
-# Create settings instance - will fail fast if ORS_API_KEY missing
-try:
-    settings = Settings()
-    print(f"✓ Configuration loaded: ORS API key configured", file=sys.stderr)
-except Exception as e:
-    print(f"ERROR: Failed to load configuration: {e}", file=sys.stderr)
-    sys.exit(1)
+# Create settings instance
+settings = Settings()

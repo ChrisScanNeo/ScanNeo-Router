@@ -28,6 +28,7 @@ class ORSClient:
         self.max_retries = settings.ors_max_retries
         self.retry_delay = settings.ors_retry_delay
         self.cache = cache  # Redis cache instance
+        self.enabled = bool(self.api_key)  # ORS is only enabled if we have an API key
         
     def _cache_key(self, start: Tuple[float, float], end: Tuple[float, float], profile: str = "driving-car") -> str:
         """Generate deterministic cache key for route"""
@@ -107,6 +108,11 @@ class ORSClient:
             (coordinates, distance_meters) tuple
         """
         
+        # If ORS is not enabled, return straight line
+        if not self.enabled:
+            logger.debug("ORS not enabled, returning straight line")
+            return [list(start), list(end)], self._haversine(start, end)
+        
         # Check cache first
         if self.cache and not waypoints:
             cache_key = self._cache_key(start, end, profile)
@@ -185,6 +191,17 @@ class ORSClient:
         Returns:
             2D matrix of distances in meters
         """
+        
+        # If ORS is not enabled, return haversine distances
+        if not self.enabled:
+            logger.debug("ORS not enabled, using haversine distances")
+            n = len(locations)
+            matrix = [[0.0] * n for _ in range(n)]
+            for i in range(n):
+                for j in range(n):
+                    if i != j:
+                        matrix[i][j] = self._haversine(locations[i], locations[j])
+            return matrix
         
         # Check cache
         if self.cache:
