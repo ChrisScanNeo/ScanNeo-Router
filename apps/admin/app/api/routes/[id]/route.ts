@@ -50,7 +50,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     // Extract status info from params JSONB
     const routeRecord = route[0];
-    const routeParams = routeRecord.params as any;
+    const routeParams = routeRecord.params as Record<string, unknown>;
 
     const routeData = {
       ...routeRecord,
