@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Header } from '@/components/Header';
 import { MapboxMap } from '@/components/MapboxMap';
 
-export default function MapPage() {
+function MapContent() {
   const searchParams = useSearchParams();
   const [selectedLayer, setSelectedLayer] = useState<'areas' | 'routes' | 'coverage'>('areas');
   const [selectedArea, setSelectedArea] = useState('');
@@ -176,6 +176,29 @@ export default function MapPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function MapPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50">
+          <Header
+            title="Interactive Map"
+            subtitle="Visualize Areas & Routes"
+            showBackButton={true}
+            backHref="/"
+            status="online"
+          />
+          <div className="flex items-center justify-center h-[calc(100vh-88px)]">
+            <div className="text-lg text-gray-500">Loading map...</div>
+          </div>
+        </div>
+      }
+    >
+      <MapContent />
+    </Suspense>
   );
 }
 
