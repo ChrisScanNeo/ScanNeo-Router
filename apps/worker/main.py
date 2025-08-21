@@ -6,48 +6,74 @@ Version: 1.0.0
 
 import asyncio
 import logging
+import os
+import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from app.config import settings
-from app.database import db
-from app.services import JobProcessor
-
-# Configure logging
+# Configure basic logging first
 logging.basicConfig(
-    level=getattr(logging, settings.log_level),
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
+# Log startup
+logger.info("Starting ScanNeo Worker Service...")
+logger.info(f"Port: {os.environ.get('PORT', '8080')}")
+logger.info(f"Database URL configured: {'DATABASE_URL' in os.environ}")
+
+try:
+    from app.config import settings
+    from app.database import db
+    from app.services import JobProcessor
+    
+    # Update logging level from settings
+    logging.getLogger().setLevel(getattr(logging, settings.log_level))
+    logger.info("Configuration loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load configuration: {e}")
+    logger.error("Worker will run in degraded mode (health check only)")
+    settings = None
+    db = None
+    JobProcessor = None
+
 # Job processor instance
-job_processor = JobProcessor()
+job_processor = JobProcessor() if JobProcessor else None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifecycle"""
     # Startup
-    logger.info(f"Starting {settings.service_name} v{settings.service_version}")
+    if settings:
+        logger.info(f"Starting {settings.service_name} v{settings.service_version}")
+    else:
+        logger.info("Starting ScanNeo Worker in degraded mode")
     
-    # Start job processor in background
-    asyncio.create_task(job_processor.start())
+    # Start job processor in background if available
+    if job_processor:
+        asyncio.create_task(job_processor.start())
+        logger.info("Job processor started")
+    else:
+        logger.warning("Job processor not available - running in health check only mode")
     
     yield
     
     # Shutdown
     logger.info("Shutting down worker service")
-    await job_processor.stop()
+    if job_processor:
+        await job_processor.stop()
 
 
 # Initialize FastAPI app
 app = FastAPI(
-    title=settings.service_name,
+    title="scanneo-worker" if not settings else settings.service_name,
     description="Coverage route generation worker service",
-    version=settings.service_version,
+    version="1.0.0" if not settings else settings.service_version,
     lifespan=lifespan
 )
 
@@ -76,14 +102,23 @@ async def root():
 @app.get("/health", response_model=HealthResponse)
 async def health():
     """Health check endpoint"""
-    db_healthy = db.health_check()
+    # Check database health if available
+    db_healthy = db.health_check() if db else False
+    
+    # Determine overall status
+    if not settings or not db:
+        status = "degraded"
+    elif db_healthy:
+        status = "healthy"
+    else:
+        status = "unhealthy"
     
     return {
-        "status": "healthy" if db_healthy else "degraded",
-        "service": settings.service_name,
-        "version": settings.service_version,
+        "status": status,
+        "service": "scanneo-worker",
+        "version": "1.0.0",
         "database": db_healthy,
-        "environment": settings.environment
+        "environment": settings.environment if settings else "unknown"
     }
 
 
@@ -93,6 +128,12 @@ async def trigger_manual_job(request: ManualJobRequest):
     Manually trigger job processing (for testing)
     Only available in development environment
     """
+    if not settings or not job_processor:
+        raise HTTPException(
+            status_code=503,
+            detail="Service not fully configured"
+        )
+    
     if settings.environment == "production":
         raise HTTPException(
             status_code=403,
