@@ -26,6 +26,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "typecheck": "turbo run typecheck",
+    "pre-deploy": "pnpm --filter @scanneo/admin lint && pnpm --filter @scanneo/admin typecheck && echo '✅ All checks passed - ready to deploy!'",
     "clean": "turbo run clean && rm -rf node_modules",
     "prepare": "husky install",
     "pre-commit": "lint-staged",

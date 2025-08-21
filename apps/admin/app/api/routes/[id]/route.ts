@@ -30,7 +30,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Fetch chunks for this route (table might not exist yet)
-    let chunks = [];
+    let chunks: Array<Record<string, unknown>> = [];
     try {
       chunks = await sql`
         SELECT 
