@@ -170,7 +170,11 @@ class ChinesePostmanSolver {
           paired.add(bestPair);
           const { path } = this.findShortestPath(node1, bestPair);
           for (let i = 0; i < path.length - 1; i++) {
-            duplicatedEdges.push([path[i], path[i + 1]]);
+            const from = path[i];
+            const to = path[i + 1];
+            if (from !== undefined && to !== undefined) {
+              duplicatedEdges.push([from, to]);
+            }
           }
         }
       }
@@ -209,6 +213,7 @@ class ChinesePostmanSolver {
 
     while (stack.length > 0) {
       const current = stack[stack.length - 1];
+      if (!current) break;
       const edges = edgeCount.get(current);
 
       if (edges && Array.from(edges.values()).some(count => count > 0)) {
@@ -274,6 +279,8 @@ export async function generateOptimalRoute(
   for (let i = 0; i < nodePath.length - 1; i++) {
     const currentNode = nodePath[i];
     const nextNode = nodePath[i + 1];
+    
+    if (!currentNode || !nextNode) continue;
 
     // Find segment between nodes
     const segment = network.segments.find(
@@ -304,7 +311,8 @@ export async function generateOptimalRoute(
   }
 
   // Add final waypoint
-  const lastNode = network.nodes[nodePath[nodePath.length - 1]];
+  const lastNodeId = nodePath[nodePath.length - 1];
+  const lastNode = lastNodeId ? network.nodes[lastNodeId] : undefined;
   if (lastNode) {
     waypoints.push({
       lat: lastNode.lat,
@@ -434,6 +442,7 @@ export function mergeRoutes(
 
   for (let i = 0; i < routes.length; i++) {
     const route = routes[i];
+    if (!route) continue;
     
     // Add route segments
     allSegments.push(...route.segments);
@@ -450,27 +459,30 @@ export function mergeRoutes(
     // Add connection to next route if requested
     if (options.addConnections && i < routes.length - 1) {
       const currentEnd = route.waypoints[route.waypoints.length - 1];
-      const nextStart = routes[i + 1].waypoints[0];
+      const nextRoute = routes[i + 1];
+      const nextStart = nextRoute?.waypoints[0];
 
       // Calculate connection distance
-      const connectionDistance = Math.sqrt(
-        Math.pow(nextStart.lat - currentEnd.lat, 2) + Math.pow(nextStart.lng - currentEnd.lng, 2)
-      ) * 111000; // Approximate conversion to meters
+      if (currentEnd && nextStart) {
+        const connectionDistance = Math.sqrt(
+          Math.pow(nextStart.lat - currentEnd.lat, 2) + Math.pow(nextStart.lng - currentEnd.lng, 2)
+        ) * 111000; // Approximate conversion to meters
 
-      totalDistance += connectionDistance;
+        totalDistance += connectionDistance;
 
-      // Add connection segment
-      allSegments.push({
-        id: `connection_${i}`,
-        startNode: `end_${i}`,
-        endNode: `start_${i + 1}`,
-        coordinates: [
-          [currentEnd.lng, currentEnd.lat],
-          [nextStart.lng, nextStart.lat],
-        ],
-        length: connectionDistance,
-        name: 'Connection',
-      });
+        // Add connection segment
+        allSegments.push({
+          id: `connection_${i}`,
+          startNode: `end_${i}`,
+          endNode: `start_${i + 1}`,
+          coordinates: [
+            [currentEnd.lng, currentEnd.lat],
+            [nextStart.lng, nextStart.lat],
+          ],
+          length: connectionDistance,
+          name: 'Connection',
+        });
+      }
     }
   }
 
@@ -510,6 +522,7 @@ export function splitLongRoute(
 
   for (let i = 0; i < route.segments.length; i++) {
     const segment = route.segments[i];
+    if (!segment) continue;
     const segmentDuration = (segment.length / 1000 / 30) * 3600;
 
     if (
@@ -531,13 +544,15 @@ export function splitLongRoute(
       currentSplit = [segment];
       currentDistance = segment.length;
       currentDuration = segmentDuration;
-      currentWaypoints = i < route.waypoints.length ? [route.waypoints[i]] : [];
+      const waypoint = route.waypoints[i];
+      currentWaypoints = waypoint ? [waypoint] : [];
     } else {
       currentSplit.push(segment);
       currentDistance += segment.length;
       currentDuration += segmentDuration;
-      if (i < route.waypoints.length) {
-        currentWaypoints.push(route.waypoints[i]);
+      const nextWaypoint = route.waypoints[i];
+      if (nextWaypoint) {
+        currentWaypoints.push(nextWaypoint);
       }
     }
   }
@@ -578,11 +593,16 @@ function nearestNeighborTSP(
 ): Array<{ lat: number; lng: number }> {
   if (points.length === 0) return [];
 
-  const result = [points[0]];
+  const firstPoint = points[0];
+  if (!firstPoint) return [];
+  
+  const result = [firstPoint];
   const remaining = new Set(points.slice(1));
 
   while (remaining.size > 0) {
     const current = result[result.length - 1];
+    if (!current) break;
+    
     let nearest: { lat: number; lng: number } | null = null;
     let minDistance = Infinity;
 
@@ -616,13 +636,20 @@ function twoOptImprovement(
 
     for (let i = 1; i < improved.length - 2; i++) {
       for (let j = i + 1; j < improved.length; j++) {
+        const prevI = improved[i - 1];
+        const currI = improved[i];
+        const prevJ = improved[j - 1];
+        const currJ = improved[j];
+        
+        if (!prevI || !currI || !prevJ || !currJ) continue;
+        
         const currentDistance =
-          distance(improved[i - 1], improved[i]) +
-          distance(improved[j - 1], improved[j]);
+          distance(prevI, currI) +
+          distance(prevJ, currJ);
 
         const newDistance =
-          distance(improved[i - 1], improved[j - 1]) +
-          distance(improved[i], improved[j]);
+          distance(prevI, prevJ) +
+          distance(currI, currJ);
 
         if (newDistance < currentDistance) {
           // Reverse the segment between i and j-1
@@ -656,11 +683,14 @@ export function addUTurns(
 
   for (let i = 0; i < route.segments.length; i++) {
     const segment = route.segments[i];
+    if (!segment) continue;
+    
     newSegments.push(segment);
 
     // Add corresponding waypoint
-    if (i < route.waypoints.length) {
-      newWaypoints.push(route.waypoints[i]);
+    const waypoint = route.waypoints[i];
+    if (waypoint) {
+      newWaypoints.push(waypoint);
     }
 
     // Check if this is a dead end
@@ -686,7 +716,10 @@ export function addUTurns(
 
   // Add final waypoint if not already added
   if (route.waypoints.length > newWaypoints.length) {
-    newWaypoints.push(route.waypoints[route.waypoints.length - 1]);
+    const lastWaypoint = route.waypoints[route.waypoints.length - 1];
+    if (lastWaypoint) {
+      newWaypoints.push(lastWaypoint);
+    }
   }
 
   return {
@@ -725,6 +758,8 @@ export function validateRoute(
   for (let i = 0; i < route.segments.length - 1; i++) {
     const current = route.segments[i];
     const next = route.segments[i + 1];
+    
+    if (!current || !next) continue;
 
     const currentEnd = current.direction === 'forward' ? current.endNode : current.startNode;
     const nextStart = next.direction === 'forward' ? next.startNode : next.endNode;

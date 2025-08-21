@@ -100,7 +100,7 @@ export async function fetchStreetNetwork(
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
-      const data: OSMData = await response.json();
+      const data = await response.json() as OSMData;
       return parseOSMData(data);
     } catch (error) {
       lastError = error as Error;
@@ -155,10 +155,15 @@ export function parseOSMData(data: OSMData): StreetNetwork {
 
       // Create segments
       for (let i = 0; i < wayNodes.length - 1; i++) {
-        const startNodeId = wayNodes[i].toString();
-        const endNodeId = wayNodes[i + 1].toString();
-        const startNode = nodeMap.get(wayNodes[i]);
-        const endNode = nodeMap.get(wayNodes[i + 1]);
+        const startId = wayNodes[i];
+        const endId = wayNodes[i + 1];
+        
+        if (startId === undefined || endId === undefined) continue;
+        
+        const startNodeId = startId.toString();
+        const endNodeId = endId.toString();
+        const startNode = nodeMap.get(startId);
+        const endNode = nodeMap.get(endId);
 
         if (!startNode || !endNode) continue;
 
@@ -178,16 +183,22 @@ export function parseOSMData(data: OSMData): StreetNetwork {
             [endNode.lon, endNode.lat],
           ],
           length,
-          name: element.tags?.name,
-          tags: element.tags,
+          name: element.tags?.name || '',
+          tags: element.tags || {},
         });
 
         // Update connections
         if (!element.tags?.oneway || element.tags.oneway === 'no') {
-          nodes[startNodeId].connections.push(endNodeId);
-          nodes[endNodeId].connections.push(startNodeId);
+          if (nodes[startNodeId]) {
+            nodes[startNodeId].connections.push(endNodeId);
+          }
+          if (nodes[endNodeId]) {
+            nodes[endNodeId].connections.push(startNodeId);
+          }
         } else {
-          nodes[startNodeId].connections.push(endNodeId);
+          if (nodes[startNodeId]) {
+            nodes[startNodeId].connections.push(endNodeId);
+          }
         }
       }
     }
@@ -290,9 +301,9 @@ export function buildStreetGraph(network: StreetNetwork): Record<string, string[
     // Check if it's a one-way street
     const isOneWay = segment.tags?.oneway === 'yes';
     
-    graph[segment.startNode].push(segment.endNode);
+    graph[segment.startNode]!.push(segment.endNode);
     if (!isOneWay) {
-      graph[segment.endNode].push(segment.startNode);
+      graph[segment.endNode]!.push(segment.startNode);
     }
   }
   

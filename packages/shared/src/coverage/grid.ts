@@ -64,13 +64,19 @@ function isPointInPolygon(
   const y = point.lat;
 
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i][0];
-    const yi = polygon[i][1];
-    const xj = polygon[j][0];
-    const yj = polygon[j][1];
+    const pointI = polygon[i];
+    const pointJ = polygon[j];
+    if (!pointI || !pointJ) continue;
+    
+    const xi = pointI[0];
+    const yi = pointI[1];
+    const xj = pointJ[0];
+    const yj = pointJ[1];
+    
+    if (xi === undefined || yi === undefined || xj === undefined || yj === undefined) continue;
 
     const intersect =
-      yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+      yi! > y !== yj! > y && x < ((xj! - xi!) * (y - yi!)) / (yj! - yi!) + xi!;
     if (intersect) inside = !inside;
   }
 
@@ -98,19 +104,24 @@ export function optimizeGridSize(
   options: GridOptions = {}
 ): number {
   const polygon = area.coordinates[0];
+  if (!polygon) return 100; // default if no polygon
   
   // Calculate area bounds
   let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
   for (const point of polygon) {
-    minLng = Math.min(minLng, point[0]);
-    maxLng = Math.max(maxLng, point[0]);
-    minLat = Math.min(minLat, point[1]);
-    maxLat = Math.max(maxLat, point[1]);
+    if (!point) continue;
+    const lng = point[0];
+    const lat = point[1];
+    if (lng === undefined || lat === undefined) continue;
+    minLng = Math.min(minLng, lng);
+    maxLng = Math.max(maxLng, lng);
+    minLat = Math.min(minLat, lat);
+    maxLat = Math.max(maxLat, lat);
   }
 
   // Calculate area dimensions in meters
-  const width = haversineDistance(minLat, minLng, minLat, maxLng);
-  const height = haversineDistance(minLat, minLng, maxLat, minLng);
+  const width = haversineDistance(minLat!, minLng!, minLat!, maxLng!);
+  const height = haversineDistance(minLat!, minLng!, maxLat!, minLng!);
   const areaSize = Math.sqrt(width * height);
 
   // Determine cell size based on area and density
@@ -142,26 +153,31 @@ export function getGridCells(
   cellSize: number
 ): GridCell[] {
   const polygon = area.coordinates[0];
+  if (!polygon) return [];
   const cells: GridCell[] = [];
 
   // Calculate bounds
   let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
   for (const point of polygon) {
-    minLng = Math.min(minLng, point[0]);
-    maxLng = Math.max(maxLng, point[0]);
-    minLat = Math.min(minLat, point[1]);
-    maxLat = Math.max(maxLat, point[1]);
+    if (!point) continue;
+    const lng = point[0];
+    const lat = point[1];
+    if (lng === undefined || lat === undefined) continue;
+    minLng = Math.min(minLng, lng);
+    maxLng = Math.max(maxLng, lng);
+    minLat = Math.min(minLat, lat);
+    maxLat = Math.max(maxLat, lat);
   }
 
   // Convert cell size to degrees
   const latStep = cellSize / 111320;
-  const lngStep = cellSize / (111320 * Math.cos(((minLat + maxLat) / 2 * Math.PI) / 180));
+  const lngStep = cellSize / (111320 * Math.cos(((minLat! + maxLat!) / 2 * Math.PI) / 180));
 
   // Generate grid cells
   let row = 0;
-  for (let lat = minLat; lat <= maxLat; lat += latStep) {
+  for (let lat = minLat!; lat <= maxLat!; lat += latStep) {
     let col = 0;
-    for (let lng = minLng; lng <= maxLng; lng += lngStep) {
+    for (let lng = minLng!; lng <= maxLng!; lng += lngStep) {
       const center = {
         lat: lat + latStep / 2,
         lng: lng + lngStep / 2,
@@ -212,7 +228,9 @@ export function mergeAdjacentCells(cells: GridCell[]): GridCell[] {
 
     // Find horizontally adjacent cells
     const adjacentCells = [cell];
-    const [row, col] = cell.id.split('_').map(Number);
+    const idParts = cell.id.split('_');
+    const row = idParts[0] ? Number(idParts[0]) : 0;
+    const col = idParts[1] ? Number(idParts[1]) : 0;
 
     // Look for adjacent cells to the right
     for (let nextCol = col + 1; ; nextCol++) {
@@ -229,21 +247,23 @@ export function mergeAdjacentCells(cells: GridCell[]): GridCell[] {
       // Merge the cells
       const firstCell = adjacentCells[0];
       const lastCell = adjacentCells[adjacentCells.length - 1];
-
-      merged.push({
-        id: `${firstCell.id}-${lastCell.id}`,
-        center: {
-          lat: (firstCell.center.lat + lastCell.center.lat) / 2,
-          lng: (firstCell.center.lng + lastCell.center.lng) / 2,
-        },
-        bounds: {
-          north: Math.max(firstCell.bounds.north, lastCell.bounds.north),
-          south: Math.min(firstCell.bounds.south, lastCell.bounds.south),
-          east: lastCell.bounds.east,
-          west: firstCell.bounds.west,
-        },
-        isWithinBoundary: true,
-      });
+      
+      if (firstCell && lastCell) {
+        merged.push({
+          id: `${firstCell.id}-${lastCell.id}`,
+          center: {
+            lat: (firstCell.center.lat + lastCell.center.lat) / 2,
+            lng: (firstCell.center.lng + lastCell.center.lng) / 2,
+          },
+          bounds: {
+            north: Math.max(firstCell.bounds.north, lastCell.bounds.north),
+            south: Math.min(firstCell.bounds.south, lastCell.bounds.south),
+            east: lastCell.bounds.east,
+            west: firstCell.bounds.west,
+          },
+          isWithinBoundary: true,
+        });
+      }
     } else {
       merged.push(cell);
     }
