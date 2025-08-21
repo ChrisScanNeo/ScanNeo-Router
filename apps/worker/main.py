@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
+from typing import Optional
 from pydantic import BaseModel
 
 # Configure basic logging first
@@ -25,6 +26,9 @@ logger = logging.getLogger(__name__)
 logger.info("Starting ScanNeo Worker Service...")
 logger.info(f"Port: {os.environ.get('PORT', '8080')}")
 logger.info(f"Database URL configured: {'DATABASE_URL' in os.environ}")
+
+# Global error tracking
+startup_error = None
 
 try:
     from app.config import settings
@@ -40,11 +44,14 @@ except Exception as e:
     logger.error(f"Failed to load configuration: {e}")
     logger.error(f"Error type: {type(e).__name__}")
     import traceback
-    logger.error(f"Traceback: {traceback.format_exc()}")
+    error_traceback = traceback.format_exc()
+    logger.error(f"Traceback: {error_traceback}")
     logger.error("Worker will run in degraded mode (health check only)")
     settings = None
     db = None
     JobProcessor = None
+    # Store error for debugging
+    startup_error = str(e)
 
 # Job processor instance
 job_processor = JobProcessor() if JobProcessor else None
@@ -92,6 +99,7 @@ class HealthResponse(BaseModel):
     environment: str
     has_database_url: bool = False
     config_loaded: bool = False
+    error: Optional[str] = None
 
 
 class ManualJobRequest(BaseModel):
@@ -127,7 +135,8 @@ async def health():
         "database": db_healthy,
         "environment": settings.environment if settings else "unknown",
         "has_database_url": "DATABASE_URL" in os.environ,
-        "config_loaded": settings is not None
+        "config_loaded": settings is not None,
+        "error": startup_error if 'startup_error' in globals() else None
     }
 
 
