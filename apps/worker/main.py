@@ -85,6 +85,8 @@ class HealthResponse(BaseModel):
     version: str
     database: bool
     environment: str
+    has_database_url: bool = False
+    config_loaded: bool = False
 
 
 class ManualJobRequest(BaseModel):
