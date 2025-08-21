@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
     const sql = neon(process.env.DATABASE_URL!);
 
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         r.drive_time_s
       FROM coverage_routes r
       LEFT JOIN areas a ON r.area_id = a.id
-      WHERE r.id = ${params.id}
+      WHERE r.id = ${id}
       LIMIT 1
     `;
 
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         length_m,
         duration_s
       FROM coverage_chunks
-      WHERE route_id = ${params.id}
+      WHERE route_id = ${id}
       ORDER BY chunk_index
     `;
 
