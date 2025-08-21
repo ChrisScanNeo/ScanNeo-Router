@@ -147,14 +147,15 @@ function RouteGenerator() {
     try {
       const selectedAreaName = areas.find((a) => a.id === selectedArea)?.name || 'Unknown';
 
-      // Call the coverage generation API
-      const response = await fetch('/api/coverage/generate', {
+      // Call the routes API to create a new route
+      const response = await fetch('/api/routes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          areaId: selectedArea,
+          area_id: selectedArea,
+          profile: 'driving-car',
           chunkDuration: chunkDuration,
         }),
       });
@@ -165,9 +166,7 @@ function RouteGenerator() {
         throw new Error(data.error || 'Failed to generate route');
       }
 
-      showToast.success(
-        `Route generation started for ${selectedAreaName}! Job ID: ${data.jobId || 'pending'}`
-      );
+      showToast.success(`Route generation started for ${selectedAreaName}! Route ID: ${data.id}`);
 
       // Trigger refresh of jobs list
       window.dispatchEvent(new Event('jobs-updated'));
@@ -275,31 +274,32 @@ function JobsList() {
 
   const fetchJobs = async () => {
     try {
-      const response = await fetch('/api/coverage/generate');
+      const response = await fetch('/api/routes');
+      if (!response.ok) {
+        throw new Error('Failed to fetch routes');
+      }
       const data = await response.json();
 
-      if (data.success && data.routes) {
-        // Filter for pending/processing jobs and sort by creation time
-        const activeJobs = data.routes
-          .filter((r: { status: string }) => r.status === 'pending' || r.status === 'processing')
-          .map(
-            (r: {
-              jobId: string;
-              id: string;
-              areaName: string;
-              status: string;
-              createdAt: string;
-            }) => ({
-              id: r.jobId || `job_${r.id}`,
-              routeId: r.id,
-              areaName: r.areaName,
-              status: r.status,
-              progress: r.status === 'processing' ? 50 : 0,
-              createdAt: r.createdAt,
-            })
-          );
-        setJobs(activeJobs);
-      }
+      // Filter for pending/processing jobs and sort by creation time
+      const activeJobs = data
+        .filter((r: { status: string }) => r.status === 'pending' || r.status === 'processing')
+        .map(
+          (r: {
+            id: string;
+            area_name: string;
+            status: string;
+            progress?: number;
+            created_at: string;
+          }) => ({
+            id: `job_${r.id}`,
+            routeId: r.id,
+            areaName: r.area_name,
+            status: r.status,
+            progress: r.progress || (r.status === 'processing' ? 50 : 0),
+            createdAt: r.created_at,
+          })
+        );
+      setJobs(activeJobs);
     } catch (error) {
       console.error('Failed to fetch jobs:', error);
     } finally {
@@ -441,12 +441,34 @@ function RoutesList() {
 
   const fetchRoutes = async () => {
     try {
-      const response = await fetch('/api/coverage/generate');
+      const response = await fetch('/api/routes');
+      if (!response.ok) {
+        throw new Error('Failed to fetch routes');
+      }
       const data = await response.json();
 
-      if (data.success && data.routes) {
-        setRoutes(data.routes);
-      }
+      // Transform the data to match the expected format
+      const transformedRoutes = data.map(
+        (route: {
+          id: string;
+          area_name: string;
+          profile: string;
+          length_m?: number;
+          drive_time_s?: number;
+          status: string;
+          created_at: string;
+        }) => ({
+          id: route.id,
+          areaName: route.area_name,
+          profile: route.profile,
+          lengthM: route.length_m || 0,
+          driveTimeS: route.drive_time_s || 0,
+          status: route.status,
+          createdAt: route.created_at,
+        })
+      );
+
+      setRoutes(transformedRoutes);
     } catch (error) {
       console.error('Failed to fetch routes:', error);
     } finally {

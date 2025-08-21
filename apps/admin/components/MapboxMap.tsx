@@ -25,7 +25,17 @@ export function MapboxMap({ selectedLayer, selectedArea, selectedRoute }: Mapbox
     geojson: string | Record<string, unknown>;
   }
 
+  interface Route {
+    id: string;
+    area_name: string;
+    status: string;
+    geojson: Record<string, unknown>;
+    length_m: number;
+    drive_time_s: number;
+  }
+
   const [areas, setAreas] = useState<Area[]>([]);
+  const [routes, setRoutes] = useState<Route[]>([]);
   const [mapLoaded, setMapLoaded] = useState(false);
 
   // Fetch areas from API
@@ -45,6 +55,27 @@ export function MapboxMap({ selectedLayer, selectedArea, selectedRoute }: Mapbox
 
     fetchAreas();
   }, []);
+
+  // Fetch routes from API
+  useEffect(() => {
+    const fetchRoutes = async () => {
+      try {
+        const response = await fetch('/api/routes');
+        if (response.ok) {
+          const data = await response.json();
+          // Filter for completed routes with geometry
+          const completedRoutes = data.filter((r: Route) => r.status === 'completed' && r.geojson);
+          setRoutes(completedRoutes);
+        }
+      } catch (error) {
+        console.error('Error fetching routes:', error);
+      }
+    };
+
+    if (selectedLayer === 'routes') {
+      fetchRoutes();
+    }
+  }, [selectedLayer]);
 
   // Initialize map
   useEffect(() => {
@@ -227,42 +258,106 @@ export function MapboxMap({ selectedLayer, selectedArea, selectedRoute }: Mapbox
       }
     }
 
-    // Placeholder for routes layer
+    // Routes layer with real data
     if (selectedLayer === 'routes') {
-      // Routes implementation will go here when backend is ready
-      const demoRoute = {
-        type: 'FeatureCollection',
-        features: [
-          {
+      // Filter routes based on selection
+      const filteredRoutes = selectedRoute ? routes.filter((r) => r.id === selectedRoute) : routes;
+
+      if (filteredRoutes.length > 0) {
+        // Create GeoJSON from routes
+        const routeFeatures = filteredRoutes
+          .filter((route) => route.geojson)
+          .map((route) => ({
             type: 'Feature',
-            properties: {},
-            geometry: {
-              type: 'LineString',
-              coordinates: [
-                [-0.087, 51.508],
-                [-0.088, 51.509],
-                [-0.089, 51.51],
-                [-0.09, 51.511],
-              ],
+            properties: {
+              id: route.id,
+              area_name: route.area_name,
+              status: route.status,
+              length_m: route.length_m,
+              drive_time_s: route.drive_time_s,
             },
-          },
-        ],
-      };
+            geometry: route.geojson,
+          }));
 
-      map.current.addSource('routes', {
-        type: 'geojson',
-        data: demoRoute as GeoJSON.FeatureCollection,
-      });
+        if (routeFeatures.length > 0) {
+          const routeCollection = {
+            type: 'FeatureCollection',
+            features: routeFeatures,
+          };
 
-      map.current.addLayer({
-        id: 'routes-line',
-        type: 'line',
-        source: 'routes',
-        paint: {
-          'line-color': '#A6CE39',
-          'line-width': 3,
-        },
-      });
+          map.current.addSource('routes', {
+            type: 'geojson',
+            data: routeCollection as unknown as GeoJSON.FeatureCollection,
+          });
+
+          map.current.addLayer({
+            id: 'routes-line',
+            type: 'line',
+            source: 'routes',
+            paint: {
+              'line-color': ['case', ['==', ['get', 'status'], 'completed'], '#A6CE39', '#999999'],
+              'line-width': 3,
+              'line-opacity': 0.8,
+            },
+          });
+
+          // Fit map to route bounds
+          const bounds = new mapboxgl.LngLatBounds();
+          routeFeatures.forEach((feature) => {
+            if (feature.geometry.type === 'LineString') {
+              const coordinates = feature.geometry.coordinates as number[][];
+              coordinates.forEach((coord) => {
+                bounds.extend(coord as [number, number]);
+              });
+            } else if (feature.geometry.type === 'MultiLineString') {
+              const coordinates = feature.geometry.coordinates as number[][][];
+              coordinates.forEach((line) => {
+                line.forEach((coord) => {
+                  bounds.extend(coord as [number, number]);
+                });
+              });
+            }
+          });
+
+          if (!bounds.isEmpty()) {
+            map.current.fitBounds(bounds, { padding: 50 });
+          }
+
+          // Add popup on click
+          map.current.on('click', 'routes-line', (e) => {
+            if (e.features && e.features[0]) {
+              const feature = e.features[0];
+              const lengthKm = (feature.properties?.length_m / 1000).toFixed(1);
+              const timeHrs = (feature.properties?.drive_time_s / 3600).toFixed(1);
+
+              new mapboxgl.Popup()
+                .setLngLat(e.lngLat)
+                .setHTML(
+                  `
+                  <div class="p-2">
+                    <h3 class="font-semibold text-[#4C4FA3]">${feature.properties?.area_name}</h3>
+                    <p class="text-sm text-gray-600">Length: ${lengthKm} km</p>
+                    <p class="text-sm text-gray-600">Time: ${timeHrs} hours</p>
+                    <a href="/routes/${feature.properties?.id}" class="text-sm text-[#00B140] hover:text-[#00A038]">View Details →</a>
+                  </div>
+                `
+                )
+                .addTo(map.current!);
+            }
+          });
+
+          // Change cursor on hover
+          map.current.on('mouseenter', 'routes-line', () => {
+            if (map.current) map.current.getCanvas().style.cursor = 'pointer';
+          });
+          map.current.on('mouseleave', 'routes-line', () => {
+            if (map.current) map.current.getCanvas().style.cursor = '';
+          });
+        }
+      } else {
+        // No routes available, show placeholder message
+        console.log('No completed routes available to display');
+      }
     }
 
     // Placeholder for coverage layer
@@ -278,7 +373,7 @@ export function MapboxMap({ selectedLayer, selectedArea, selectedRoute }: Mapbox
         data: demoCoverage as GeoJSON.FeatureCollection,
       });
     }
-  }, [selectedLayer, selectedArea, selectedRoute, areas, mapLoaded]);
+  }, [selectedLayer, selectedArea, selectedRoute, areas, routes, mapLoaded]);
 
   return (
     <div className="h-full relative">

@@ -1,14 +1,26 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Header } from '@/components/Header';
 import { MapboxMap } from '@/components/MapboxMap';
 
 export default function MapPage() {
+  const searchParams = useSearchParams();
   const [selectedLayer, setSelectedLayer] = useState<'areas' | 'routes' | 'coverage'>('areas');
   const [selectedArea, setSelectedArea] = useState('');
   const [selectedRoute, setSelectedRoute] = useState('');
   const [areas, setAreas] = useState<{ id: string; name: string }[]>([]);
+  const [routes, setRoutes] = useState<{ id: string; area_name: string; status: string }[]>([]);
+
+  useEffect(() => {
+    // Check for route query parameter
+    const routeId = searchParams.get('route');
+    if (routeId) {
+      setSelectedLayer('routes');
+      setSelectedRoute(routeId);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     // Fetch areas for the filter dropdown
@@ -26,6 +38,27 @@ export default function MapPage() {
 
     fetchAreas();
   }, []);
+
+  useEffect(() => {
+    // Fetch routes for the filter dropdown
+    const fetchRoutes = async () => {
+      try {
+        const response = await fetch('/api/routes');
+        if (response.ok) {
+          const data = await response.json();
+          // Filter for completed routes
+          const completedRoutes = data.filter((r: { status: string }) => r.status === 'completed');
+          setRoutes(completedRoutes);
+        }
+      } catch (error) {
+        console.error('Error fetching routes:', error);
+      }
+    };
+
+    if (selectedLayer === 'routes') {
+      fetchRoutes();
+    }
+  }, [selectedLayer]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -107,10 +140,14 @@ export default function MapPage() {
                   value={selectedRoute}
                   onChange={(e) => setSelectedRoute(e.target.value)}
                   className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  disabled={selectedLayer !== 'routes'}
                 >
                   <option value="">All routes</option>
-                  <option value="route-1">Tower Hamlets Route 1</option>
-                  <option value="route-2">Camden Route 1</option>
+                  {routes.map((route) => (
+                    <option key={route.id} value={route.id}>
+                      {route.area_name}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

@@ -4,6 +4,7 @@
 import { useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { RouteMapPreview } from '@/components/RouteMapPreview';
 
 interface RouteChunk {
   id: string;
@@ -214,6 +215,16 @@ export default function RouteDetailsPage() {
 
         {/* Right Column - Metadata and Actions */}
         <div className="space-y-6">
+          {/* Map Preview */}
+          {route.status === 'completed' && route.geojson && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold mb-4 text-[#4C4FA3]">Route Preview</h2>
+              <div className="h-[400px] rounded-lg overflow-hidden">
+                <RouteMapPreview routeGeojson={route.geojson} routeName={route.area_name} />
+              </div>
+            </div>
+          )}
+
           {/* Processing Metadata */}
           {route.metadata && (
             <div className="bg-white rounded-lg shadow p-6">
@@ -263,18 +274,50 @@ export default function RouteDetailsPage() {
                   </Link>
                   <button
                     className="block w-full px-4 py-2 bg-[#00B140] text-white text-center rounded-lg hover:bg-[#00A038] transition-colors"
-                    onClick={() => {
-                      // TODO: Implement download functionality
-                      alert('Download functionality coming soon!');
+                    onClick={async () => {
+                      try {
+                        const response = await fetch(
+                          `/api/routes/${route.id}/export?format=geojson`
+                        );
+                        if (!response.ok) throw new Error('Download failed');
+
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${route.area_name.replace(/\s+/g, '_')}_route.geojson`;
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+                      } catch (error) {
+                        console.error('Download error:', error);
+                        alert('Failed to download route');
+                      }
                     }}
                   >
-                    Download Route
+                    Download GeoJSON
                   </button>
                   <button
                     className="block w-full px-4 py-2 bg-gray-100 text-gray-700 text-center rounded-lg hover:bg-gray-200 transition-colors"
-                    onClick={() => {
-                      // TODO: Implement export functionality
-                      alert('Export functionality coming soon!');
+                    onClick={async () => {
+                      try {
+                        const response = await fetch(`/api/routes/${route.id}/export?format=gpx`);
+                        if (!response.ok) throw new Error('Export failed');
+
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${route.area_name.replace(/\s+/g, '_')}_route.gpx`;
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+                      } catch (error) {
+                        console.error('Export error:', error);
+                        alert('Failed to export route');
+                      }
                     }}
                   >
                     Export to GPX
