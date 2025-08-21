@@ -25,9 +25,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# TEMPORARY: Copy production.env file for testing (REMOVE IN PRODUCTION!)
-COPY production.env .env
-
 # Create non-root user for security
 RUN useradd -m -u 1000 worker && chown -R worker:worker /app
 USER worker
