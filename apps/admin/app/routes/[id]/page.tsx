@@ -1,9 +1,33 @@
 'use client';
 
 // Route details page for viewing individual route information
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+
+interface RouteChunk {
+  id: string;
+  chunk_index: number;
+  geojson?: Record<string, unknown>;
+  length_m: number;
+  duration_s: number;
+}
+
+interface RouteParams {
+  chunkDuration?: number;
+  [key: string]: unknown;
+}
+
+interface RouteMetadata {
+  stage?: string;
+  stats?: {
+    streets?: number;
+    length_km?: number;
+    time_hours?: number;
+    chunks?: number;
+  };
+  [key: string]: unknown;
+}
 
 interface RouteDetails {
   id: string;
@@ -14,40 +38,39 @@ interface RouteDetails {
   created_at: string;
   updated_at: string;
   profile: string;
-  params: any;
-  metadata: any;
+  params: RouteParams;
+  metadata: RouteMetadata;
   error: string | null;
-  geojson?: any;
+  geojson?: Record<string, unknown>;
   length_m?: number;
   drive_time_s?: number;
-  chunks?: any[];
+  chunks?: RouteChunk[];
 }
 
 export default function RouteDetailsPage() {
   const params = useParams();
-  const router = useRouter();
   const [route, setRoute] = useState<RouteDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const fetchRouteDetails = async () => {
+      try {
+        const response = await fetch(`/api/routes/${params.id}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch route details');
+        }
+        const data = await response.json();
+        setRoute(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchRouteDetails();
   }, [params.id]);
-
-  const fetchRouteDetails = async () => {
-    try {
-      const response = await fetch(`/api/routes/${params.id}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch route details');
-      }
-      const data = await response.json();
-      setRoute(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -260,7 +283,7 @@ export default function RouteDetailsPage() {
               )}
               {route.status === 'processing' && (
                 <button
-                  onClick={fetchRouteDetails}
+                  onClick={() => window.location.reload()}
                   className="block w-full px-4 py-2 bg-blue-500 text-white text-center rounded-lg hover:bg-blue-600 transition-colors"
                 >
                   Refresh Status
@@ -285,7 +308,7 @@ export default function RouteDetailsPage() {
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-semibold mb-4 text-[#4C4FA3]">Route Chunks</h2>
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                {route.chunks.map((chunk: any, index: number) => (
+                {route.chunks.map((chunk: RouteChunk, index: number) => (
                   <div
                     key={chunk.id || index}
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
