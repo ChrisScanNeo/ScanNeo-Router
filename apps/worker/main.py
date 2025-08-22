@@ -198,7 +198,8 @@ async def test_ors():
             "api_key_length": len(ors.api_key) if ors.api_key else 0,
             "route_points": len(coords),
             "distance_m": distance,
-            "used_fallback": len(coords) == 2  # Fallback only returns start and end
+            "used_fallback": len(coords) == 2,  # Fallback only returns start and end
+            "last_error": getattr(ors, 'last_error', None)
         }
     except Exception as e:
         return {
@@ -206,7 +207,8 @@ async def test_ors():
             "error": str(e),
             "ors_enabled": ors.enabled,
             "api_key_present": bool(ors.api_key),
-            "api_key_length": len(ors.api_key) if ors.api_key else 0
+            "api_key_length": len(ors.api_key) if ors.api_key else 0,
+            "last_error": getattr(ors, 'last_error', None)
         }
 
 

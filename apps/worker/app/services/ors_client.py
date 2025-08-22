@@ -178,7 +178,10 @@ class ORSClient:
             return coordinates, distance
             
         except Exception as e:
-            logger.error(f"Failed to get route from {start} to {end}: {e}")
+            error_msg = f"Failed to get route from {start} to {end}: {e}"
+            logger.error(error_msg)
+            # Store last error for debugging
+            self.last_error = str(e)
             # Return straight line as fallback (will be flagged in validation)
             return [list(start), list(end)], self._haversine(start, end)
     
