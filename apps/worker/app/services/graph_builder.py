@@ -172,7 +172,8 @@ class GraphBuilder:
             # Collect all intersection points
             split_points = []
             
-            for other in candidates:
+            for other_idx in candidates:
+                other = projected_lines[other_idx]
                 if other is line:
                     continue
                 

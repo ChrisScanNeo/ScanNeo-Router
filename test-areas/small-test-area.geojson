@@ -1,0 +1,17 @@
+{
+  "type": "Feature",
+  "properties": {
+    "name": "Small Test Area - Central Park",
+    "description": "Small test area around Central Park in NYC for testing route generation"
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [[
+      [-73.9732, 40.7644],
+      [-73.9732, 40.7689],
+      [-73.9685, 40.7689],
+      [-73.9685, 40.7644],
+      [-73.9732, 40.7644]
+    ]]
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Disconnected Test Area - Two Sections",
+        "description": "Test area with two disconnected sections"
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [[
+            [-73.9732, 40.7644],
+            [-73.9732, 40.7654],
+            [-73.9715, 40.7654],
+            [-73.9715, 40.7644],
+            [-73.9732, 40.7644]
+          ]],
+          [[
+            [-73.9700, 40.7670],
+            [-73.9700, 40.7680],
+            [-73.9685, 40.7680],
+            [-73.9685, 40.7670],
+            [-73.9700, 40.7670]
+          ]]
+        ]
+      }
+    }
+  ]
+}
