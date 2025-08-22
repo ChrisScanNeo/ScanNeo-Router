@@ -143,7 +143,8 @@ class ORSClient:
         json_data = {
             "coordinates": coords,
             "instructions": False,
-            "geometry_simplify": False
+            "geometry": True,  # Request geometry
+            "geometry_format": "geojson"  # Request GeoJSON format within JSON response
         }
         
         # Make request with retry
@@ -157,13 +158,24 @@ class ORSClient:
             
             data = response.json()
             
-            # Extract route geometry and distance
-            if 'features' not in data or len(data['features']) == 0:
+            # Extract route geometry and distance (JSON format with GeoJSON geometry)
+            if 'routes' not in data or len(data['routes']) == 0:
                 raise ValueError("No route found")
             
-            feature = data['features'][0]
-            coordinates = feature['geometry']['coordinates']
-            distance = feature['properties']['segments'][0]['distance']
+            route = data['routes'][0]
+            
+            # Get coordinates from GeoJSON geometry
+            if 'geometry' in route and isinstance(route['geometry'], dict):
+                # GeoJSON geometry object
+                if 'coordinates' in route['geometry']:
+                    coordinates = route['geometry']['coordinates']
+                else:
+                    raise ValueError("No coordinates in route geometry")
+            else:
+                raise ValueError("No geometry in route")
+            
+            # Get distance from summary
+            distance = route.get('summary', {}).get('distance', 0)
             
             # Cache result
             if self.cache and not waypoints:

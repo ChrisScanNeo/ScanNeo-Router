@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     
     # OpenRouteService endpoints
     ors_directions_url: str = Field(
-        "https://api.openrouteservice.org/v2/directions/driving-car/geojson",
+        "https://api.openrouteservice.org/v2/directions/driving-car/json",
         env='ORS_DIRECTIONS_URL'
     )
     ors_matrix_url: str = Field(
