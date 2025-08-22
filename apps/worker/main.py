@@ -144,6 +144,10 @@ async def health():
 @app.get("/diagnostics")
 async def diagnostics():
     """Get diagnostic information about the service configuration"""
+    # Check if the key exactly matches what we expect
+    expected_key_start = "eyJvcmci"
+    actual_key = settings.ors_api_key if settings else ""
+    
     diag_info = {
         "service": "scanneo-worker",
         "version": settings.service_version if settings else "unknown",
@@ -154,8 +158,12 @@ async def diagnostics():
         },
         "ors": {
             "configured": bool(settings and settings.ors_api_key),
-            "key_length": len(settings.ors_api_key) if settings and settings.ors_api_key else 0,
-            "key_prefix": settings.ors_api_key[:8] + "..." if settings and settings.ors_api_key and len(settings.ors_api_key) > 8 else "not_set"
+            "key_length": len(actual_key),
+            "key_prefix": actual_key[:8] + "..." if len(actual_key) > 8 else "not_set",
+            "starts_correctly": actual_key.startswith(expected_key_start) if actual_key else False,
+            "has_equals": actual_key.endswith("=") if actual_key else False,
+            "raw_env_present": "ORS_API_KEY" in os.environ,
+            "raw_env_length": len(os.environ.get("ORS_API_KEY", ""))
         },
         "config": {
             "poll_interval": settings.poll_interval if settings else None,
