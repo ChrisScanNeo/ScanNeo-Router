@@ -11,6 +11,7 @@ import asyncio
 from typing import Dict, Any, Tuple, Optional, List
 import httpx
 from httpx import Response
+import polyline
 
 from app.config import settings
 
@@ -165,10 +166,16 @@ class ORSClient:
             # Get distance from summary  
             distance = route.get('summary', {}).get('distance', 0)
             
-            # For now, we'll use the waypoints as the route
-            # In production, we'd decode the polyline geometry
-            # This is sufficient to prove ORS is working
-            coordinates = coords
+            # Decode the polyline geometry to get actual route coordinates
+            if 'geometry' in route and isinstance(route['geometry'], str):
+                # Decode polyline (ORS uses precision 5)
+                decoded = polyline.decode(route['geometry'], 5)
+                # Convert from (lat, lon) to (lon, lat) format
+                coordinates = [[lon, lat] for lat, lon in decoded]
+            else:
+                # Fallback to waypoints if no geometry
+                logger.warning("No geometry in route, using waypoints")
+                coordinates = coords
             
             # Mark that we successfully used ORS (not fallback)
             self.last_success = True

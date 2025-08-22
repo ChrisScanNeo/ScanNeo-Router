@@ -38,3 +38,4 @@ networkx==3.2.1
 
 # Utilities
 python-dateutil==2.8.2
+polyline==2.0.2
