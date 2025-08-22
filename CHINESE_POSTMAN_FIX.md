@@ -146,8 +146,10 @@ JOB_TIMEOUT=3600
 - ✅ Worker service healthy and polling jobs
 - ✅ Area import working (Polygon and MultiPolygon support)
 - ✅ Job creation and status tracking functional
-- ✅ Fix deployed to production (v1.0.2)
-- ⏳ Route generation pending validation with fixed code
+- ✅ Fix deployed to production (v1.0.3)
+- ⚠️ Routes completing with warnings due to missing ORS API key
+- ⚠️ Without ORS key: 448m gaps, 156 violations, straight-line connections
+- 📝 See ORS_SETUP.md for API key configuration instructions
 
 ## Key Metrics to Monitor
 
