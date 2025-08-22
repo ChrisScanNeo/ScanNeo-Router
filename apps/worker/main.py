@@ -175,6 +175,41 @@ async def diagnostics():
     return JSONResponse(content=diag_info)
 
 
+@app.get("/test-ors")
+async def test_ors():
+    """Test ORS routing directly"""
+    from app.services.ors_client import ORSClient
+    
+    # Create a fresh ORS client
+    ors = ORSClient()
+    
+    # Test coordinates (same area as your test)
+    start = (-1.06, 50.80)
+    end = (-1.05, 50.81)
+    
+    try:
+        # Try to get a route
+        coords, distance = await ors.get_route(start, end)
+        
+        return {
+            "success": True,
+            "ors_enabled": ors.enabled,
+            "api_key_present": bool(ors.api_key),
+            "api_key_length": len(ors.api_key) if ors.api_key else 0,
+            "route_points": len(coords),
+            "distance_m": distance,
+            "used_fallback": len(coords) == 2  # Fallback only returns start and end
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "ors_enabled": ors.enabled,
+            "api_key_present": bool(ors.api_key),
+            "api_key_length": len(ors.api_key) if ors.api_key else 0
+        }
+
+
 @app.post("/process/manual")
 async def trigger_manual_job(request: ManualJobRequest):
     """
