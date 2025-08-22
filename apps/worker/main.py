@@ -141,6 +141,32 @@ async def health():
     }
 
 
+@app.get("/diagnostics")
+async def diagnostics():
+    """Get diagnostic information about the service configuration"""
+    diag_info = {
+        "service": "scanneo-worker",
+        "version": settings.service_version if settings else "unknown",
+        "environment": settings.environment if settings else "unknown",
+        "database": {
+            "configured": "DATABASE_URL" in os.environ,
+            "connected": db.health_check() if db else False
+        },
+        "ors": {
+            "configured": bool(settings and settings.ors_api_key),
+            "key_length": len(settings.ors_api_key) if settings and settings.ors_api_key else 0,
+            "key_prefix": settings.ors_api_key[:8] + "..." if settings and settings.ors_api_key and len(settings.ors_api_key) > 8 else "not_set"
+        },
+        "config": {
+            "poll_interval": settings.poll_interval if settings else None,
+            "job_timeout": settings.job_timeout if settings else None,
+            "max_gap_meters": settings.max_gap_meters if settings else None
+        }
+    }
+    
+    return JSONResponse(content=diag_info)
+
+
 @app.post("/process/manual")
 async def trigger_manual_job(request: ManualJobRequest):
     """
