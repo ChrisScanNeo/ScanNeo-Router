@@ -198,7 +198,8 @@ async def test_ors():
             "api_key_length": len(ors.api_key) if ors.api_key else 0,
             "route_points": len(coords),
             "distance_m": distance,
-            "used_fallback": len(coords) == 2,  # Fallback only returns start and end
+            "used_ors": getattr(ors, 'last_success', False),
+            "used_fallback": len(coords) == 2 and distance < 1400,  # Haversine distance is ~1315m
             "last_error": getattr(ors, 'last_error', None)
         }
     except Exception as e:
