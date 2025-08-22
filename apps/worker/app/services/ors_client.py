@@ -30,6 +30,12 @@ class ORSClient:
         self.cache = cache  # Redis cache instance
         self.enabled = bool(self.api_key)  # ORS is only enabled if we have an API key
         
+        # Log ORS status for debugging
+        if self.enabled:
+            logger.info(f"ORS client initialized with API key (length: {len(self.api_key)})")
+        else:
+            logger.warning("ORS client initialized WITHOUT API key - using fallback mode")
+        
     def _cache_key(self, start: Tuple[float, float], end: Tuple[float, float], profile: str = "driving-car") -> str:
         """Generate deterministic cache key for route"""
         key_str = f"{start[0]:.6f},{start[1]:.6f}|{end[0]:.6f},{end[1]:.6f}|{profile}"
@@ -110,7 +116,7 @@ class ORSClient:
         
         # If ORS is not enabled, return straight line
         if not self.enabled:
-            logger.debug("ORS not enabled, returning straight line")
+            logger.warning(f"ORS not enabled (key present: {bool(self.api_key)}, length: {len(self.api_key) if self.api_key else 0}), returning straight line")
             return [list(start), list(end)], self._haversine(start, end)
         
         # Check cache first
