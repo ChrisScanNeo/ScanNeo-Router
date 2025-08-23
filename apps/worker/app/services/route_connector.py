@@ -84,6 +84,9 @@ class RouteConnector:
             
             logger.info(f"Connecting components {comp_i} and {comp_j} with {distance:.0f}m route")
             logger.info(f"  Source node: {source_node}, Target node: {target_node}")
+            logger.info(f"  Route has {len(route_coords)} coordinates")
+            logger.info(f"  Route starts at: {route_coords[0] if route_coords else 'None'}")
+            logger.info(f"  Route ends at: {route_coords[-1] if route_coords else 'None'}")
             
             # Add connecting edges to graph with proper node connections
             self._add_route_to_graph(
@@ -101,11 +104,36 @@ class RouteConnector:
             new_component_count = len(components)
             logger.info(f"Reduced to {new_component_count} components (was {previous_component_count})")
             
+            # Debug: Check if nodes are actually connected
+            if source_node and target_node:
+                if nx.has_path(G_connected, source_node, target_node):
+                    logger.info(f"✅ SUCCESS: Path exists between {source_node} and {target_node}")
+                else:
+                    logger.error(f"❌ PROBLEM: No path between {source_node} and {target_node} after connection!")
+                    # Check if nodes exist
+                    logger.error(f"  Source in graph: {source_node in G_connected.nodes()}")
+                    logger.error(f"  Target in graph: {target_node in G_connected.nodes()}")
+                    # Check neighbors
+                    if source_node in G_connected.nodes():
+                        neighbors = list(G_connected.neighbors(source_node))[:5]
+                        logger.error(f"  Source neighbors: {neighbors}")
+                    if target_node in G_connected.nodes():
+                        neighbors = list(G_connected.neighbors(target_node))[:5]
+                        logger.error(f"  Target neighbors: {neighbors}")
+            
             # Check if we're making progress
             if new_component_count >= previous_component_count:
-                logger.warning(f"No progress made in iteration {iteration}, may be stuck")
+                logger.warning(f"⚠️ No progress made in iteration {iteration}, may be stuck")
+                logger.warning(f"  Components before: {previous_component_count}")
+                logger.warning(f"  Components after: {new_component_count}")
+                logger.warning(f"  Graph nodes: {G_connected.number_of_nodes()}")
+                logger.warning(f"  Graph edges: {G_connected.number_of_edges()}")
                 if iteration > 3:  # Give it a few tries before breaking
-                    logger.error("Breaking loop - no progress after multiple attempts")
+                    logger.error("❌ Breaking loop - no progress after multiple attempts")
+                    # Log component info for debugging
+                    for idx, comp in enumerate(components[:3]):
+                        sample_nodes = list(comp)[:3]
+                        logger.error(f"  Component {idx}: {len(comp)} nodes, samples: {sample_nodes}")
                     break
             
             previous_component_count = new_component_count
@@ -207,6 +235,7 @@ class RouteConnector:
                     best_distance = distance
                     best_source = node1
                     best_target = node2
+                    logger.debug(f"  New best route: {node1} -> {node2}, distance={distance:.1f}m")
                     
                     # If we found a good route (< 1.5x straight distance), stop searching
                     if distance < straight_dist * 1.5:
@@ -216,8 +245,12 @@ class RouteConnector:
                 logger.warning(f"Failed to get route between {node1} and {node2}: {e}")
         
         if best_route:
+            logger.info(f"✅ Found best connection: {best_source} -> {best_target}")
+            logger.info(f"  Distance: {best_distance:.1f}m")
+            logger.info(f"  Route points: {len(best_route)}")
             return (best_route, best_distance, best_source, best_target)
         
+        logger.warning("❌ No route found between components")
         return None
     
     def _get_component_centroid(self, component: nx.DiGraph) -> Tuple[float, float]:
@@ -247,9 +280,14 @@ class RouteConnector:
         
         # Connect source node to first route coordinate if needed
         first_coord = tuple(coords[0])
+        logger.info(f"DEBUG: Checking source connection:")
+        logger.info(f"  source_node={source_node}")
+        logger.info(f"  first_coord={first_coord}")
+        logger.info(f"  nodes_equal={source_node == first_coord}")
+        
         if source_node and source_node != first_coord:
             length_m = self._haversine(source_node, first_coord)
-            logger.debug(f"Connecting source {source_node} to route start {first_coord} ({length_m:.1f}m)")
+            logger.info(f"🔗 CONNECTING source {source_node} to route start {first_coord} ({length_m:.1f}m)")
             
             edge_data = {
                 'length': length_m,
@@ -295,9 +333,14 @@ class RouteConnector:
         
         # Connect last route coordinate to target node if needed
         last_coord = tuple(coords[-1])
+        logger.info(f"DEBUG: Checking target connection:")
+        logger.info(f"  target_node={target_node}")
+        logger.info(f"  last_coord={last_coord}")
+        logger.info(f"  nodes_equal={target_node == last_coord}")
+        
         if target_node and target_node != last_coord:
             length_m = self._haversine(last_coord, target_node)
-            logger.debug(f"Connecting route end {last_coord} to target {target_node} ({length_m:.1f}m)")
+            logger.info(f"🔗 CONNECTING route end {last_coord} to target {target_node} ({length_m:.1f}m)")
             
             edge_data = {
                 'length': length_m,
