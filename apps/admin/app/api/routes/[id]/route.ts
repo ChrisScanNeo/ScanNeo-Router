@@ -73,3 +73,39 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     );
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  try {
+    const sql = neon(process.env.DATABASE_URL!);
+
+    // Delete the route
+    const result = await sql`
+      DELETE FROM coverage_routes 
+      WHERE id = ${id}
+      RETURNING id
+    `;
+
+    if (result.length === 0) {
+      return NextResponse.json({ error: 'Route not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Route deleted successfully',
+      id: result[0].id,
+    });
+  } catch (error) {
+    console.error('Error deleting route:', error);
+    return NextResponse.json(
+      {
+        error: 'Failed to delete route',
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
+  }
+}

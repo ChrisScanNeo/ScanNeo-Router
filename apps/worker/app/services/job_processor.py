@@ -146,6 +146,8 @@ class JobProcessor:
             final_status = 'completed' if is_valid else 'completed_with_warnings'
             
             # Mark as completed with full diagnostics
+            total_time = asyncio.get_event_loop().time() - start_time
+            logger.info(f"⏳ Marking job as {final_status} (100%)")
             db.update_job_status(job_id, final_status, 100, metadata={
                 'stage': 'Route generation complete',
                 'valid': is_valid,
@@ -153,7 +155,8 @@ class JobProcessor:
                     'streets': len(streets['features']),
                     'length_km': round(route_result['length_m'] / 1000, 1),
                     'time_hours': round(route_result['drive_time_s'] / 3600, 1),
-                    'chunks': len(chunks)
+                    'chunks': len(chunks),
+                    'processing_time_s': round(total_time, 1)
                 },
                 'diagnostics': {
                     'graph_nodes': diagnostics.get('graph_nodes', 0),
@@ -169,7 +172,7 @@ class JobProcessor:
                 }
             })
             
-            logger.info(f"Job {job_id} completed successfully")
+            logger.info(f"🎉 Job {job_id} completed successfully ({final_status}) in {total_time:.1f}s")
             
         except Exception as e:
             error_msg = str(e)

@@ -153,9 +153,14 @@ class Database:
                     SET params = params || %s::jsonb,
                         updated_at = NOW()
                     WHERE id = %s
+                    RETURNING id
                 """, (json.dumps(params_update), job_id))
                 
-                logger.info(f"Updated job {job_id}: status={status}, progress={progress}")
+                result = cur.fetchone()
+                if result:
+                    logger.debug(f"  Update successful for job {job_id}")
+                else:
+                    logger.error(f"  Failed to update job {job_id} - no rows affected")
     
     def save_route_result(
         self,

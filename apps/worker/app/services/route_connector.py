@@ -60,10 +60,16 @@ class RouteConnector:
         for i, comp in enumerate(component_subgraphs):
             logger.info(f"Component {i}: {comp.number_of_nodes()} nodes, {comp.number_of_edges()} edges")
         
-        # Connect components iteratively
+        # Connect components iteratively with safety checks
         G_connected = G.copy()
+        max_iterations = 10
+        iteration = 0
+        previous_component_count = len(components)
         
-        while len(components) > 1:
+        while len(components) > 1 and iteration < max_iterations:
+            iteration += 1
+            logger.info(f"Connection iteration {iteration}/{max_iterations}")
+            
             # Find best pair to connect
             best_connection = await self._find_best_connection(
                 component_subgraphs,
@@ -74,18 +80,35 @@ class RouteConnector:
                 logger.warning("Could not find valid connection between components")
                 break
             
-            comp_i, comp_j, route_coords, distance = best_connection
+            comp_i, comp_j, route_coords, distance, source_node, target_node = best_connection
             
             logger.info(f"Connecting components {comp_i} and {comp_j} with {distance:.0f}m route")
+            logger.info(f"  Source node: {source_node}, Target node: {target_node}")
             
-            # Add connecting edges to graph
-            self._add_route_to_graph(G_connected, route_coords, is_connector=True)
+            # Add connecting edges to graph with proper node connections
+            self._add_route_to_graph(
+                G_connected, 
+                route_coords, 
+                source_node=source_node,
+                target_node=target_node,
+                is_connector=True
+            )
             
             # Recompute components
             components = list(nx.weakly_connected_components(G_connected))
             component_subgraphs = [G_connected.subgraph(c).copy() for c in components]
             
-            logger.info(f"Reduced to {len(components)} components")
+            new_component_count = len(components)
+            logger.info(f"Reduced to {new_component_count} components (was {previous_component_count})")
+            
+            # Check if we're making progress
+            if new_component_count >= previous_component_count:
+                logger.warning(f"No progress made in iteration {iteration}, may be stuck")
+                if iteration > 3:  # Give it a few tries before breaking
+                    logger.error("Breaking loop - no progress after multiple attempts")
+                    break
+            
+            previous_component_count = new_component_count
         
         # Final connectivity check
         if nx.is_weakly_connected(G_connected):
@@ -100,8 +123,12 @@ class RouteConnector:
         self,
         components: List[nx.DiGraph],
         max_candidates: int
-    ) -> Optional[Tuple[int, int, List[List[float]], float]]:
-        """Find best connection between components"""
+    ) -> Optional[Tuple[int, int, List[List[float]], float, Tuple, Tuple]]:
+        """Find best connection between components
+        
+        Returns:
+            (comp_i_idx, comp_j_idx, route_coords, distance, source_node, target_node)
+        """
         
         if len(components) < 2:
             return None
@@ -121,9 +148,10 @@ class RouteConnector:
                 max_candidates
             )
             
-            if connection and connection[2] < best_distance:
-                best = (i, j, connection[0], connection[1])
-                best_distance = connection[2]
+            if connection and connection[1] < best_distance:
+                # connection is (route_coords, distance, source_node, target_node)
+                best = (i, j, connection[0], connection[1], connection[2], connection[3])
+                best_distance = connection[1]
         
         return best
     
@@ -132,8 +160,12 @@ class RouteConnector:
         comp1: nx.DiGraph,
         comp2: nx.DiGraph,
         max_candidates: int
-    ) -> Optional[Tuple[List[List[float]], float, float]]:
-        """Find closest nodes between two components"""
+    ) -> Optional[Tuple[List[List[float]], float, Tuple, Tuple]]:
+        """Find closest nodes between two components
+        
+        Returns:
+            (route_coords, distance, source_node, target_node)
+        """
         
         # Stage 1: Use component centroids for pre-filtering
         centroid1 = self._get_component_centroid(comp1)
@@ -162,6 +194,8 @@ class RouteConnector:
         # Stage 3: Get actual routes for best candidates
         best_route = None
         best_distance = float('inf')
+        best_source = None
+        best_target = None
         
         for node1, node2, straight_dist in candidates:
             try:
@@ -169,8 +203,10 @@ class RouteConnector:
                 coords, distance = await self.ors_client.get_route(node1, node2)
                 
                 if coords and distance < best_distance:
-                    best_route = (coords, distance, straight_dist)
+                    best_route = coords
                     best_distance = distance
+                    best_source = node1
+                    best_target = node2
                     
                     # If we found a good route (< 1.5x straight distance), stop searching
                     if distance < straight_dist * 1.5:
@@ -179,7 +215,10 @@ class RouteConnector:
             except Exception as e:
                 logger.warning(f"Failed to get route between {node1} and {node2}: {e}")
         
-        return best_route
+        if best_route:
+            return (best_route, best_distance, best_source, best_target)
+        
+        return None
     
     def _get_component_centroid(self, component: nx.DiGraph) -> Tuple[float, float]:
         """Get centroid of component nodes"""
@@ -197,13 +236,38 @@ class RouteConnector:
         self,
         G: nx.MultiDiGraph,
         coords: List[List[float]],
+        source_node: Optional[Tuple] = None,
+        target_node: Optional[Tuple] = None,
         is_connector: bool = False
     ):
-        """Add route coordinates as edges to graph"""
+        """Add route coordinates as edges to graph, properly connecting to source/target nodes"""
         
         if len(coords) < 2:
             return
         
+        # Connect source node to first route coordinate if needed
+        first_coord = tuple(coords[0])
+        if source_node and source_node != first_coord:
+            length_m = self._haversine(source_node, first_coord)
+            logger.debug(f"Connecting source {source_node} to route start {first_coord} ({length_m:.1f}m)")
+            
+            edge_data = {
+                'length': length_m,
+                'time': length_m / 10.0,
+                'geometry': [list(source_node), list(first_coord)],
+                'highway': 'connector',
+                'name': 'Source connection',
+                'oneway': False,
+                'osm_id': '',
+                'is_connector': True
+            }
+            
+            G.add_edge(source_node, first_coord, **edge_data)
+            reverse_data = edge_data.copy()
+            reverse_data['geometry'] = [list(first_coord), list(source_node)]
+            G.add_edge(first_coord, source_node, **reverse_data)
+        
+        # Add route edges
         for i in range(len(coords) - 1):
             start = tuple(coords[i])
             end = tuple(coords[i + 1])
@@ -228,6 +292,28 @@ class RouteConnector:
             reverse_data = edge_data.copy()
             reverse_data['geometry'] = [list(end), list(start)]
             G.add_edge(end, start, **reverse_data)
+        
+        # Connect last route coordinate to target node if needed
+        last_coord = tuple(coords[-1])
+        if target_node and target_node != last_coord:
+            length_m = self._haversine(last_coord, target_node)
+            logger.debug(f"Connecting route end {last_coord} to target {target_node} ({length_m:.1f}m)")
+            
+            edge_data = {
+                'length': length_m,
+                'time': length_m / 10.0,
+                'geometry': [list(last_coord), list(target_node)],
+                'highway': 'connector',
+                'name': 'Target connection',
+                'oneway': False,
+                'osm_id': '',
+                'is_connector': True
+            }
+            
+            G.add_edge(last_coord, target_node, **edge_data)
+            reverse_data = edge_data.copy()
+            reverse_data['geometry'] = [list(target_node), list(last_coord)]
+            G.add_edge(target_node, last_coord, **reverse_data)
     
     def _haversine(self, p1: Tuple[float, float], p2: Tuple[float, float]) -> float:
         """Calculate haversine distance in meters"""
