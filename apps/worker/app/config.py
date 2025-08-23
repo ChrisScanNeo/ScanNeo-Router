@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     
     # Service info
     service_name: str = "scanneo-worker"
-    service_version: str = "1.0.3"
+    service_version: str = "1.0.4-debug"
     
     @validator('ors_api_key')
     def validate_ors_key(cls, v):

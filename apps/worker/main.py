@@ -86,7 +86,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="scanneo-worker" if not settings else settings.service_name,
     description="Coverage route generation worker service",
-    version="1.0.2" if not settings else settings.service_version,
+    version="1.0.4-debug" if not settings else settings.service_version,
     lifespan=lifespan
 )
 
