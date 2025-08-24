@@ -72,15 +72,11 @@ class Database:
                 # Find and lock a pending job
                 cur.execute("""
                     UPDATE coverage_routes
-                    SET params = jsonb_set(
-                        params,
-                        '{status}',
-                        '"processing"'::jsonb
-                    ),
+                    SET status = 'processing',
                     updated_at = NOW()
                     WHERE id = (
                         SELECT id FROM coverage_routes
-                        WHERE params->>'status' = 'pending'
+                        WHERE status = 'pending'
                         ORDER BY created_at ASC
                         LIMIT 1
                         FOR UPDATE SKIP LOCKED
@@ -133,28 +129,34 @@ class Database:
         """Update job status and progress"""
         with self.get_connection() as conn:
             with conn.cursor() as cur:
-                params_update = {
-                    'status': status,
-                    'progress': progress,
-                    'updatedAt': datetime.utcnow().isoformat()
-                }
-                
-                if error:
-                    params_update['error'] = error
-                
+                # Update metadata in params jsonb column
                 if metadata:
-                    params_update.update(metadata)
+                    cur.execute("""
+                        UPDATE coverage_routes
+                        SET metadata = metadata || %s::jsonb
+                        WHERE id = %s
+                    """, (json.dumps(metadata), job_id))
                 
-                if status == 'completed':
-                    params_update['completedAt'] = datetime.utcnow().isoformat()
-                
-                cur.execute("""
-                    UPDATE coverage_routes
-                    SET params = params || %s::jsonb,
-                        updated_at = NOW()
-                    WHERE id = %s
-                    RETURNING id
-                """, (json.dumps(params_update), job_id))
+                # Update main status fields
+                if error:
+                    cur.execute("""
+                        UPDATE coverage_routes
+                        SET status = %s,
+                            progress = %s,
+                            error = %s,
+                            updated_at = NOW()
+                        WHERE id = %s
+                        RETURNING id
+                    """, (status, progress, error, job_id))
+                else:
+                    cur.execute("""
+                        UPDATE coverage_routes
+                        SET status = %s,
+                            progress = %s,
+                            updated_at = NOW()
+                        WHERE id = %s
+                        RETURNING id
+                    """, (status, progress, job_id))
                 
                 result = cur.fetchone()
                 if result:

@@ -9,6 +9,7 @@ import asyncio
 import logging
 import os
 import sys
+import traceback
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
@@ -278,22 +279,38 @@ async def debug_pending_jobs():
         return {"error": "Database not configured"}
     
     try:
-        # Get pending job
-        job = db.get_pending_job()
-        
-        # Also get count of all jobs
-        all_jobs = db.execute_query("SELECT COUNT(*) as count, status FROM coverage_routes GROUP BY status")
+        # Get count of all jobs using direct database connection
+        job_counts = []
+        with db.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT status, COUNT(*) as count 
+                    FROM coverage_routes 
+                    GROUP BY status
+                """)
+                job_counts = [dict(row) for row in cur.fetchall()]
+                
+                # Also check for pending jobs directly
+                cur.execute("""
+                    SELECT id, area_id, status, created_at 
+                    FROM coverage_routes 
+                    WHERE status = 'pending'
+                    ORDER BY created_at ASC
+                    LIMIT 5
+                """)
+                pending_jobs = [dict(row) for row in cur.fetchall()]
         
         return {
-            "pending_job": job,
-            "job_counts": all_jobs,
+            "pending_jobs": pending_jobs,
+            "job_counts": job_counts,
             "poll_interval": settings.poll_interval if settings else 30,
             "processor_running": job_processor.running if job_processor else False
         }
     except Exception as e:
         return {
             "error": str(e),
-            "type": type(e).__name__
+            "type": type(e).__name__,
+            "traceback": traceback.format_exc() if settings and settings.environment == "development" else None
         }
 
 
