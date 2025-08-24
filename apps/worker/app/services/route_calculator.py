@@ -107,15 +107,15 @@ class RouteCalculator:
                 if not self._validate_eulerian_directed(G_eulerian):
                     logger.warning(f"SCC {idx}: Not perfectly Eulerian, but continuing")
                 
-                # Step 6: Find Eulerian circuit for this SCC
+                # Step 6: Find Eulerian circuit for this SCC (with keys for MultiDiGraph)
                 try:
-                    circuit = list(nx.eulerian_circuit(G_eulerian))
+                    circuit = list(nx.eulerian_circuit(G_eulerian, keys=True))
                     logger.info(f"SCC {idx}: Found Eulerian circuit with {len(circuit)} edges")
                     scc_circuits.append((idx, G_eulerian, circuit))
                 except nx.NetworkXError as e:
                     logger.error(f"SCC {idx}: Failed to find Eulerian circuit: {e}")
-                    # Use all edges as fallback
-                    circuit = list(G_eulerian.edges())
+                    # Use all edges as fallback (with keys)
+                    circuit = list(G_eulerian.edges(keys=True))
                     scc_circuits.append((idx, G_eulerian, circuit))
             
             diagnostics['scc_stats'] = scc_stats
@@ -414,8 +414,10 @@ class RouteCalculator:
             
             G_scc, circuit = scc_data
             
-            # Assemble coordinates for this circuit
-            circuit_coords = await self.route_connector.bridge_route_gaps(G_scc, circuit)
+            # Assemble coordinates for this circuit (with edge keys)
+            circuit_coords = await self.route_connector.bridge_route_gaps(
+                G_scc, circuit, use_edge_keys=True
+            )
             
             if not circuit_coords:
                 logger.warning(f"SCC {scc_idx}: No coordinates generated")

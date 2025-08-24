@@ -16,6 +16,33 @@ logger = logging.getLogger(__name__)
 # Geodesic calculator
 GEOD = Geod(ellps="WGS84")
 
+# Gap handling thresholds
+SNAP_EPS_M = 1.0    # If within this, just snap (no routing needed)
+SMALL_JOIN_M = 8.0  # If <= this, don't call ORS; just connect with direct segment
+
+
+def _align(u: Tuple[float, float], v: Tuple[float, float], coords: List[List[float]]) -> List[List[float]]:
+    """
+    Align geometry to run from u to v.
+    Reverse if needed and snap endpoints exactly to u/v.
+    """
+    if not coords or len(coords) < 2:
+        return [list(u), list(v)]
+    
+    def sqd(A, B):
+        """Squared distance for comparison"""
+        return (A[0] - B[0])**2 + (A[1] - B[1])**2
+    
+    # Check if we need to reverse
+    if sqd(coords[0], list(u)) > sqd(coords[0], list(v)):
+        coords = list(reversed(coords))
+    
+    # Snap endpoints exactly to u/v
+    coords[0] = [u[0], u[1]]
+    coords[-1] = [v[0], v[1]]
+    
+    return coords
+
 
 class RouteConnector:
     """Connects disconnected components in street graph"""
@@ -85,8 +112,6 @@ class RouteConnector:
             logger.info(f"Connecting components {comp_i} and {comp_j} with {distance:.0f}m route")
             logger.info(f"  Source node: {source_node}, Target node: {target_node}")
             logger.info(f"  Route has {len(route_coords)} coordinates")
-            logger.info(f"  Route starts at: {route_coords[0] if route_coords else 'None'}")
-            logger.info(f"  Route ends at: {route_coords[-1] if route_coords else 'None'}")
             
             # Add connecting edges to graph with proper node connections
             self._add_route_to_graph(
@@ -104,36 +129,11 @@ class RouteConnector:
             new_component_count = len(components)
             logger.info(f"Reduced to {new_component_count} components (was {previous_component_count})")
             
-            # Debug: Check if nodes are actually connected
-            if source_node and target_node:
-                if nx.has_path(G_connected, source_node, target_node):
-                    logger.info(f"✅ SUCCESS: Path exists between {source_node} and {target_node}")
-                else:
-                    logger.error(f"❌ PROBLEM: No path between {source_node} and {target_node} after connection!")
-                    # Check if nodes exist
-                    logger.error(f"  Source in graph: {source_node in G_connected.nodes()}")
-                    logger.error(f"  Target in graph: {target_node in G_connected.nodes()}")
-                    # Check neighbors
-                    if source_node in G_connected.nodes():
-                        neighbors = list(G_connected.neighbors(source_node))[:5]
-                        logger.error(f"  Source neighbors: {neighbors}")
-                    if target_node in G_connected.nodes():
-                        neighbors = list(G_connected.neighbors(target_node))[:5]
-                        logger.error(f"  Target neighbors: {neighbors}")
-            
             # Check if we're making progress
             if new_component_count >= previous_component_count:
-                logger.warning(f"⚠️ No progress made in iteration {iteration}, may be stuck")
-                logger.warning(f"  Components before: {previous_component_count}")
-                logger.warning(f"  Components after: {new_component_count}")
-                logger.warning(f"  Graph nodes: {G_connected.number_of_nodes()}")
-                logger.warning(f"  Graph edges: {G_connected.number_of_edges()}")
-                if iteration > 3:  # Give it a few tries before breaking
-                    logger.error("❌ Breaking loop - no progress after multiple attempts")
-                    # Log component info for debugging
-                    for idx, comp in enumerate(components[:3]):
-                        sample_nodes = list(comp)[:3]
-                        logger.error(f"  Component {idx}: {len(comp)} nodes, samples: {sample_nodes}")
+                logger.warning(f"No progress made in iteration {iteration}")
+                if iteration > 3:
+                    logger.error("Breaking loop - no progress after multiple attempts")
                     break
             
             previous_component_count = new_component_count
@@ -169,7 +169,7 @@ class RouteConnector:
             comp_i = components[i]
             comp_j = components[j]
             
-            # Find closest nodes between components (two-stage search)
+            # Find closest nodes between components
             connection = await self._find_closest_nodes(
                 comp_i,
                 comp_j,
@@ -245,12 +245,10 @@ class RouteConnector:
                 logger.warning(f"Failed to get route between {node1} and {node2}: {e}")
         
         if best_route:
-            logger.info(f"✅ Found best connection: {best_source} -> {best_target}")
-            logger.info(f"  Distance: {best_distance:.1f}m")
-            logger.info(f"  Route points: {len(best_route)}")
+            logger.info(f"Found best connection: {best_source} -> {best_target}, distance: {best_distance:.1f}m")
             return (best_route, best_distance, best_source, best_target)
         
-        logger.warning("❌ No route found between components")
+        logger.warning("No route found between components")
         return None
     
     def _get_component_centroid(self, component: nx.DiGraph) -> Tuple[float, float]:
@@ -280,14 +278,10 @@ class RouteConnector:
         
         # Connect source node to first route coordinate if needed
         first_coord = tuple(coords[0])
-        logger.info(f"DEBUG: Checking source connection:")
-        logger.info(f"  source_node={source_node}")
-        logger.info(f"  first_coord={first_coord}")
-        logger.info(f"  nodes_equal={source_node == first_coord}")
         
         if source_node and source_node != first_coord:
             length_m = self._haversine(source_node, first_coord)
-            logger.info(f"🔗 CONNECTING source {source_node} to route start {first_coord} ({length_m:.1f}m)")
+            logger.info(f"Connecting source {source_node} to route start {first_coord} ({length_m:.1f}m)")
             
             edge_data = {
                 'length': length_m,
@@ -315,7 +309,7 @@ class RouteConnector:
             
             edge_data = {
                 'length': length_m,
-                'time': length_m / 10.0,  # Assume 10 m/s for connectors
+                'time': length_m / 10.0,
                 'geometry': [list(start), list(end)],
                 'highway': 'connector' if is_connector else 'route',
                 'name': 'Connection route' if is_connector else '',
@@ -333,14 +327,10 @@ class RouteConnector:
         
         # Connect last route coordinate to target node if needed
         last_coord = tuple(coords[-1])
-        logger.info(f"DEBUG: Checking target connection:")
-        logger.info(f"  target_node={target_node}")
-        logger.info(f"  last_coord={last_coord}")
-        logger.info(f"  nodes_equal={target_node == last_coord}")
         
         if target_node and target_node != last_coord:
             length_m = self._haversine(last_coord, target_node)
-            logger.info(f"🔗 CONNECTING route end {last_coord} to target {target_node} ({length_m:.1f}m)")
+            logger.info(f"Connecting route end {last_coord} to target {target_node} ({length_m:.1f}m)")
             
             edge_data = {
                 'length': length_m,
@@ -373,7 +363,9 @@ class RouteConnector:
         self,
         G: nx.MultiDiGraph,
         circuit: List[Tuple],
-        max_gap: float = None
+        max_gap: float = None,
+        profile: str = 'driving-car',
+        use_edge_keys: bool = False
     ) -> List[List[float]]:
         """
         Bridge gaps in Eulerian circuit to create continuous route
@@ -381,7 +373,9 @@ class RouteConnector:
         Args:
             G: Street graph
             circuit: Eulerian circuit (list of edge tuples)
-            max_gap: Maximum allowed gap without bridging
+            max_gap: Maximum allowed gap without bridging (deprecated)
+            profile: Routing profile for ORS
+            use_edge_keys: Whether circuit contains edge keys
         
         Returns:
             Continuous route coordinates
@@ -390,73 +384,162 @@ class RouteConnector:
         if not circuit:
             return []
         
-        max_gap = max_gap or self.max_gap
-        coords_out = []
+        out = []
         gaps_bridged = 0
         total_gap_distance = 0
         
-        for i, (u, v) in enumerate(circuit):
-            # Get edge geometry
-            edge_data = None
+        def get_edge_geom(u, v, key=None):
+            """Get edge geometry, with alignment"""
+            data = None
+            if use_edge_keys and key is not None:
+                data = G.get_edge_data(u, v, key=key)
+            else:
+                ed = G.get_edge_data(u, v)
+                if ed:
+                    # Pick the shortest edge if multiple exist
+                    if isinstance(ed, dict):
+                        data = min(ed.values(), key=lambda d: d.get('length', float('inf')))
+                    else:
+                        data = ed
             
-            if G.has_edge(u, v):
-                # Get first matching edge
-                edge_dict = G.get_edge_data(u, v)
-                if edge_dict:
-                    edge_data = list(edge_dict.values())[0]
-            elif G.has_edge(v, u):
-                # Try reverse edge
-                edge_dict = G.get_edge_data(v, u)
-                if edge_dict:
-                    edge_data = list(edge_dict.values())[0]
-                    # Reverse geometry
-                    edge_data = edge_data.copy()
-                    edge_data['geometry'] = list(reversed(edge_data['geometry']))
+            if not data:
+                # Fallback: straight line
+                logger.warning(f"No edge data for ({u}, {v}, key={key})")
+                return [list(u), list(v)]
             
-            if not edge_data:
-                logger.warning(f"No edge data for ({u}, {v})")
+            geom = data.get('geometry')
+            if not geom:
+                return [list(u), list(v)]
+            
+            # Ensure geometry is aligned from u to v
+            return _align(u, v, [list(g) for g in geom])
+        
+        # Process each edge in the circuit
+        for idx, item in enumerate(circuit):
+            if use_edge_keys:
+                u, v, k = item
+                seg = get_edge_geom(u, v, key=k)
+            else:
+                u, v = item
+                seg = get_edge_geom(u, v, key=None)
+            
+            if not seg or len(seg) < 2:
+                logger.warning(f"Edge {idx} has invalid geometry, using straight line")
+                seg = [list(u), list(v)]
+            
+            # First segment - just add it
+            if not out:
+                out.extend(seg)
                 continue
             
-            edge_coords = edge_data['geometry']
+            # Check gap with previous segment
+            last_pt = out[-1]
+            first_pt = seg[0]
+            gap = self._haversine(tuple(last_pt), tuple(first_pt))
             
-            # Check for gap with previous segment
-            if coords_out:
-                last_pt = tuple(coords_out[-1])
-                first_pt = tuple(edge_coords[0])
-                
-                gap_distance = self._haversine(last_pt, first_pt)
-                
-                if gap_distance > max_gap:
-                    # Bridge the gap with ORS
-                    logger.debug(f"Bridging gap of {gap_distance:.1f}m")
-                    
-                    try:
-                        bridge_coords, bridge_dist = await self.ors_client.get_route(
-                            last_pt,
-                            first_pt
-                        )
-                        
-                        # Add bridge coordinates (skip first point to avoid duplicate)
-                        if bridge_coords and len(bridge_coords) > 1:
-                            coords_out.extend(bridge_coords[1:])
-                            gaps_bridged += 1
-                            total_gap_distance += bridge_dist
-                            
-                    except Exception as e:
-                        logger.warning(f"Failed to bridge gap: {e}")
-                        # Add straight line as fallback
-                        coords_out.append(list(first_pt))
-            
-            # Add edge coordinates
-            if coords_out and coords_out[-1] == edge_coords[0]:
-                # Skip duplicate point
-                coords_out.extend(edge_coords[1:])
+            if gap <= SNAP_EPS_M:
+                # Tiny drift: just ensure continuity
+                if gap > 0:
+                    logger.debug(f"Edge {idx}: Snapping {gap:.2f}m gap")
+                # The segment already starts where we need it (or very close)
+            elif gap <= SMALL_JOIN_M:
+                # Small gap: add direct connection without ORS
+                logger.info(f"Edge {idx}: Direct join for {gap:.1f}m gap")
+                # The first point of seg will bridge the gap
+                gaps_bridged += 1
+                total_gap_distance += gap
             else:
-                coords_out.extend(edge_coords)
+                # Large gap: route with ORS
+                logger.info(f"Edge {idx}: Bridging {gap:.1f}m gap with ORS")
+                try:
+                    if hasattr(self.ors_client, 'route_between_points'):
+                        bridge = await self.ors_client.route_between_points(
+                            last_pt, first_pt, profile=profile
+                        )
+                    else:
+                        bridge, _ = await self.ors_client.get_route(
+                            tuple(last_pt), tuple(first_pt), profile=profile
+                        )
+                    
+                    if bridge and len(bridge) > 1:
+                        # Add bridge coordinates (skip first to avoid duplicate)
+                        out.extend(bridge[1:])
+                        gaps_bridged += 1
+                        total_gap_distance += gap
+                        logger.info(f"  Bridged with {len(bridge)} points")
+                    else:
+                        # Fallback: direct connection
+                        logger.warning(f"  No route found, using direct connection")
+                        out.append(first_pt)
+                        gaps_bridged += 1
+                        
+                except Exception as e:
+                    logger.warning(f"Failed to bridge gap: {e}")
+                    # Add direct connection as fallback
+                    out.append(first_pt)
+                    gaps_bridged += 1
+            
+            # Now append the segment (skip first point to avoid duplicate)
+            out.extend(seg[1:])
         
-        logger.info(f"Bridged {gaps_bridged} gaps, total distance: {total_gap_distance:.0f}m")
+        # Final continuity repair pass
+        logger.info("Running final continuity repair...")
+        fixes = await self._repair_continuity(out, profile)
+        gaps_bridged += fixes
         
-        return coords_out
+        logger.info(f"bridge_route_gaps: bridged {gaps_bridged} gaps, total distance: {total_gap_distance:.0f}m")
+        
+        return out
+    
+    async def _repair_continuity(
+        self,
+        coords: List[List[float]],
+        profile: str
+    ) -> int:
+        """
+        Final pass: stitch any remaining gaps > SNAP_EPS_M
+        """
+        if not coords or len(coords) < 2:
+            return 0
+        
+        fixed = 0
+        i = 0
+        
+        while i < len(coords) - 1:
+            a = coords[i]
+            b = coords[i + 1]
+            gap = self._haversine(tuple(a), tuple(b))
+            
+            if gap > SNAP_EPS_M and gap > SMALL_JOIN_M:
+                # This shouldn't happen if bridge_route_gaps worked correctly,
+                # but let's fix it anyway
+                logger.warning(f"Final repair: Found {gap:.1f}m gap at index {i}")
+                
+                try:
+                    if hasattr(self.ors_client, 'route_between_points'):
+                        bridge = await self.ors_client.route_between_points(
+                            a, b, profile=profile
+                        )
+                    else:
+                        bridge, _ = await self.ors_client.get_route(
+                            tuple(a), tuple(b), profile=profile
+                        )
+                    
+                    if bridge and len(bridge) > 2:
+                        # Replace the gap with the bridge
+                        coords[i:i+2] = [a] + bridge[1:]
+                        fixed += 1
+                        # Don't increment i - check this position again
+                        continue
+                except Exception as e:
+                    logger.error(f"Final repair failed: {e}")
+            
+            i += 1
+        
+        if fixed > 0:
+            logger.info(f"Final repair fixed {fixed} gaps")
+        
+        return fixed
     
     def validate_route_continuity(
         self,
@@ -490,7 +573,7 @@ class RouteConnector:
         
         if violations:
             logger.warning(f"Found {len(violations)} continuity violations")
-            # Log top 5 violations
+            # Log worst violations
             for idx, dist in sorted(violations, key=lambda x: x[1], reverse=True)[:5]:
                 logger.warning(f"  Gap at index {idx}: {dist:.1f}m")
         

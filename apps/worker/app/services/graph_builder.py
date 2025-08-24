@@ -18,6 +18,41 @@ logger = logging.getLogger(__name__)
 # Geodesic calculator for accurate distances
 GEOD = Geod(ellps="WGS84")
 
+# Coordinate quantization for consistency
+SNAP_DECIMALS = 6  # ~0.1m at London latitudes
+
+def q(p: Tuple[float, float]) -> Tuple[float, float]:
+    """Quantize a coordinate tuple to consistent precision"""
+    return (round(p[0], SNAP_DECIMALS), round(p[1], SNAP_DECIMALS))
+
+def qlist(coords: List[List[float]]) -> List[List[float]]:
+    """Quantize a list of coordinates"""
+    return [[round(c[0], SNAP_DECIMALS), round(c[1], SNAP_DECIMALS)] for c in coords]
+
+def align_geometry(u: Tuple[float, float], v: Tuple[float, float], coords: List[List[float]]) -> List[List[float]]:
+    """
+    Ensure the first coord is ~u and the last is ~v (within quantization).
+    Reverse if needed; if endpoints drift, snap them to u/v.
+    """
+    if not coords or len(coords) < 2:
+        return [list(u), list(v)]
+    
+    cu = coords[0]
+    cv = coords[-1]
+    
+    # Are we reversed? Compare squared distance in lon/lat space
+    def sqd(a, b): 
+        return (a[0]-b[0])**2 + (a[1]-b[1])**2
+    
+    if sqd(cu, list(u)) > sqd(cu, list(v)):
+        coords = list(reversed(coords))
+        cu, cv = coords[0], coords[-1]
+    
+    # Snap endpoints exactly to u/v to kill millimetre drift
+    coords[0] = [u[0], u[1]]
+    coords[-1] = [v[0], v[1]]
+    return coords
+
 
 class GraphBuilder:
     """Builds proper street graph with intersection detection"""
@@ -277,68 +312,66 @@ class GraphBuilder:
         segments: List[LineString],
         props_list: List[Dict[str, Any]]
     ) -> nx.MultiDiGraph:
-        """Build MultiDiGraph from segments"""
+        """Build MultiDiGraph from segments with quantized coordinates"""
         
         G = nx.MultiDiGraph()
         
-        # Build node index for snapping
-        node_index = {}
-        tolerance = self.snap_tolerance
-        
-        def get_or_create_node(point: Tuple[float, float]) -> Tuple[float, float]:
-            """Get existing node or create new one with snapping"""
-            
-            # Check for nearby existing node
-            for node in node_index.keys():
-                if abs(node[0] - point[0]) < tolerance and abs(node[1] - point[1]) < tolerance:
-                    return node
-            
-            # Create new node
-            node_index[point] = True
-            return point
-        
-        # Add edges for each segment
-        for seg in segments:
+        # Process each segment with quantization
+        for seg_idx, seg in enumerate(segments):
             coords = list(seg.coords)
             
             if len(coords) < 2:
                 continue
             
-            # Get or create nodes
-            start = get_or_create_node((coords[0][0], coords[0][1]))
-            end = get_or_create_node((coords[-1][0], coords[-1][1]))
+            # Quantize all coordinates
+            coords = qlist(coords)
             
-            # Calculate accurate geodesic length
-            length_m = self._geodesic_length(coords)
+            # Get properties for this segment
+            props = props_list[seg_idx % len(props_list)] if props_list else {}
             
-            # Find best matching properties (simplified - could use spatial matching)
-            props = props_list[0] if props_list else {}
-            
-            # Determine speed for time estimation
+            # Extract properties
             highway = props.get('highway', 'residential')
+            name = props.get('name', '')
+            oneway = props.get('oneway', False)
+            osm_id = props.get('osm_id', '')
             maxspeed = props.get('maxspeed', '')
-            speed_mps = self._get_speed_mps(highway, maxspeed)
             
-            # Create edge data
-            edge_data = {
-                'length': length_m,
-                'time': length_m / speed_mps,
-                'geometry': coords,
-                'highway': highway,
-                'name': props.get('name', ''),
-                'oneway': props.get('oneway', False),
-                'osm_id': props.get('osm_id', ''),
-                'maxspeed': maxspeed
-            }
-            
-            # Add edge(s)
-            G.add_edge(start, end, **edge_data)
-            
-            # Add reverse edge if not one-way
-            if not props.get('oneway', False):
-                reverse_data = edge_data.copy()
-                reverse_data['geometry'] = list(reversed(coords))
-                G.add_edge(end, start, **reverse_data)
+            # Add edges for each consecutive pair of points (intersection handling)
+            for i in range(len(coords) - 1):
+                u = q(tuple(coords[i]))
+                v = q(tuple(coords[i + 1]))
+                
+                if u == v:  # Skip zero-length segments
+                    continue
+                
+                # Create segment geometry
+                seg_coords = [coords[i], coords[i + 1]]
+                
+                # Calculate accurate geodesic length
+                length_m = self._geodesic_length(seg_coords)
+                
+                # Determine speed for time estimation
+                speed_mps = self._get_speed_mps(highway, maxspeed)
+                
+                # Create edge data with aligned geometry
+                edge_data = {
+                    'length': length_m,
+                    'time': length_m / speed_mps,
+                    'geometry': align_geometry(u, v, seg_coords),
+                    'highway': highway,
+                    'name': name,
+                    'osm_id': osm_id,
+                    'maxspeed': maxspeed
+                }
+                
+                # Add forward edge
+                G.add_edge(u, v, **edge_data)
+                
+                # Add reverse edge if not one-way
+                if not oneway:
+                    reverse_data = edge_data.copy()
+                    reverse_data['geometry'] = align_geometry(v, u, list(reversed(seg_coords)))
+                    G.add_edge(v, u, **reverse_data)
         
         return G
     
