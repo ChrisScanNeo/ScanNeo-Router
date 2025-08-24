@@ -15,6 +15,10 @@ export async function GET() {
         r.updated_at,
         r.profile,
         r.params,
+        r.status,
+        r.progress,
+        r.error,
+        r.metadata,
         ST_AsGeoJSON(r.geom)::json as geojson,
         r.length_m,
         r.drive_time_s
@@ -23,17 +27,14 @@ export async function GET() {
       ORDER BY r.created_at DESC
     `;
 
-    // Transform routes to include status from params
-    const transformedRoutes = routes.map((route) => {
-      const params = route.params as Record<string, unknown>;
-      return {
-        ...route,
-        status: params?.status || 'pending',
-        progress: params?.progress || 0,
-        error: params?.error || null,
-        metadata: params?.metadata || {},
-      };
-    });
+    // Routes now have status as top-level columns
+    const transformedRoutes = routes.map((route) => ({
+      ...route,
+      status: route.status || 'pending',
+      progress: route.progress || 0,
+      error: route.error || null,
+      metadata: route.metadata || {},
+    }));
 
     return NextResponse.json(transformedRoutes);
   } catch (error) {
@@ -61,27 +62,28 @@ export async function POST(request: NextRequest) {
 
     // Create a new route job
     const [route] = await sql`
-      INSERT INTO coverage_routes (area_id, profile, params)
+      INSERT INTO coverage_routes (area_id, profile, status, progress, params, metadata)
       VALUES (
         ${area_id}, 
-        ${profile}, 
+        ${profile},
+        'queued',
+        0, 
         ${JSON.stringify({
-          status: 'pending',
-          progress: 0,
           chunkDuration,
-          metadata: {
-            stage: 'Queued for processing',
-            stats: {},
-          },
+          includeService: false,
+        })}::jsonb,
+        ${JSON.stringify({
+          stage: 'Queued for processing',
+          stats: {},
         })}::jsonb
       )
-      RETURNING id, area_id, created_at, profile, params
+      RETURNING id, area_id, created_at, profile, status, progress, params, metadata
     `;
 
     return NextResponse.json({
       ...route,
-      status: 'pending',
-      progress: 0,
+      status: route.status || 'queued',
+      progress: route.progress || 0,
     });
   } catch (error) {
     console.error('Error creating route:', error);
