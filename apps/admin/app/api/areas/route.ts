@@ -30,11 +30,7 @@ export async function GET() {
       updated_at: area.updated_at,
     }));
 
-    return NextResponse.json({
-      success: true,
-      areas: formattedAreas,
-      count: formattedAreas.length,
-    });
+    return NextResponse.json(formattedAreas);
   } catch (error) {
     console.error('Failed to fetch areas:', error);
     return NextResponse.json(

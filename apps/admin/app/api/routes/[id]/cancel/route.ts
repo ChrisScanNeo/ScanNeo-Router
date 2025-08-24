@@ -13,7 +13,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           metadata = jsonb_set(
             COALESCE(metadata, '{}'::jsonb),
             '{cancelled_at}',
-            to_jsonb(NOW())
+            to_jsonb(NOW()::text)
           )
       WHERE id = ${id} 
       AND status IN ('queued', 'processing')

@@ -11,7 +11,7 @@ export async function POST() {
           metadata = jsonb_set(
             COALESCE(metadata, '{}'::jsonb),
             '{cancelled_at}',
-            to_jsonb(NOW())
+            to_jsonb(NOW()::text)
           )
       WHERE status IN ('queued', 'processing')
       RETURNING id
