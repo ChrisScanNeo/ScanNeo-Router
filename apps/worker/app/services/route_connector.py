@@ -483,11 +483,14 @@ class RouteConnector:
             out.extend(seg[1:])
         
         # Final continuity repair pass
-        logger.info("Running final continuity repair...")
+        logger.info(f"Running final continuity repair... (main phase bridged {gaps_bridged} gaps)")
         fixes = await self._repair_continuity(out, profile)
         gaps_bridged += fixes
         
-        logger.info(f"bridge_route_gaps: bridged {gaps_bridged} gaps, total distance: {total_gap_distance:.0f}m")
+        # Log validation results
+        max_gap, violations = self.validate_route_continuity(out)
+        logger.info(f"bridge_route_gaps complete: bridged {gaps_bridged} gaps, total distance: {total_gap_distance:.0f}m")
+        logger.info(f"Route validation: max_gap={max_gap:.1f}m, violations={violations}")
         
         return out
     
@@ -504,8 +507,19 @@ class RouteConnector:
         
         fixed = 0
         i = 0
-        max_fixes = 200  # hard stop
+        max_fixes = 50  # hard stop - reduced to prevent excessive API calls
         seen = set()  # (i, round(gap,1)) loop guard
+        
+        # First pass: count how many gaps we have
+        gap_count = 0
+        for j in range(len(coords) - 1):
+            gap = self._haversine(tuple(coords[j]), tuple(coords[j + 1]))
+            if gap > SNAP_EPS_M:
+                gap_count += 1
+        
+        if gap_count > 20:
+            logger.warning(f"Final repair: Found {gap_count} gaps - this suggests main stitching failed!")
+            logger.warning("Limiting to first 50 fixes to prevent excessive API calls")
         
         while i < len(coords) - 1 and fixed < max_fixes:
             a = coords[i]
