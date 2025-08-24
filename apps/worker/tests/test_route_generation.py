@@ -153,15 +153,15 @@ class TestRouteConnector:
         
         # Continuous route (small gaps OK)
         good_coords = [[0, 0], [0.0001, 0], [0.0002, 0]]
-        is_valid, violations = connector.validate_route_continuity(good_coords, max_gap=50)
-        assert is_valid
-        assert len(violations) == 0
+        max_gap, violations = connector.validate_route_continuity(good_coords, max_gap=50)
+        assert violations == 0
+        assert max_gap < 50
         
         # Route with large gap
         bad_coords = [[0, 0], [0, 1], [1, 1]]  # Large jump
-        is_valid, violations = connector.validate_route_continuity(bad_coords, max_gap=30)
-        assert not is_valid
-        assert len(violations) > 0
+        max_gap_found, violations = connector.validate_route_continuity(bad_coords, max_gap=30)
+        assert violations > 0
+        assert max_gap_found > 30
     
     @pytest.mark.asyncio
     async def test_bridge_gaps(self):

@@ -412,7 +412,11 @@ class RouteConnector:
                 return [list(u), list(v)]
             
             # Ensure geometry is aligned from u to v
-            return _align(u, v, [list(g) for g in geom])
+            seg = _align(u, v, [list(g) for g in geom])
+            # Force exact endpoints (belt-and-braces)
+            seg[0] = [u[0], u[1]]
+            seg[-1] = [v[0], v[1]]
+            return seg
         
         # Process each edge in the circuit
         for idx, item in enumerate(circuit):
@@ -432,24 +436,21 @@ class RouteConnector:
                 out.extend(seg)
                 continue
             
-            # Check gap with previous segment
+            # Check continuity with previous segment
             last_pt = out[-1]
             first_pt = seg[0]
             gap = self._haversine(tuple(last_pt), tuple(first_pt))
             
-            if gap <= SNAP_EPS_M:
-                # micro drift: append the first point so seg[1:] will connect
+            # ALWAYS ensure continuity before adding seg[1:]
+            # 1) tiny/small gaps: just insert the start point
+            if gap <= 12.0:  # 12m threshold to minimize ORS calls
                 if gap > 0:
-                    logger.debug(f"Edge {idx}: Snapping {gap:.2f}m gap")
-                    out.append(first_pt)
-            elif gap <= SMALL_JOIN_M:
-                # small gap: append the first point (direct join, no ORS)
-                logger.info(f"Edge {idx}: Direct join for {gap:.1f}m gap")
-                out.append(first_pt)  # <-- this was missing
-                gaps_bridged += 1
-                total_gap_distance += gap
+                    logger.debug(f"Edge {idx}: Closing {gap:.2f}m gap with direct join")
+                    out.append(first_pt)  # <- actually close the gap
+                    gaps_bridged += 1
+                    total_gap_distance += gap
+            # 2) bigger gaps: route once
             else:
-                # large gap: route with ORS
                 logger.info(f"Edge {idx}: Bridging {gap:.1f}m gap with ORS")
                 try:
                     if hasattr(self.ors_client, 'route_between_points'):
@@ -462,7 +463,7 @@ class RouteConnector:
                         )
                     
                     if bridge and len(bridge) > 1:
-                        # snap ends exactly to last_pt/first_pt to prevent re-gaps
+                        # snap ends to kill sub-meter drift
                         bridge[0] = [last_pt[0], last_pt[1]]
                         bridge[-1] = [first_pt[0], first_pt[1]]
                         out.extend(bridge[1:])  # skip duplicate start
@@ -470,16 +471,17 @@ class RouteConnector:
                         total_gap_distance += gap
                         logger.info(f"  Bridged with {len(bridge)} points")
                     else:
+                        # fall back to inserting the start point
                         logger.warning(f"  No route found, using direct connection")
                         out.append(first_pt)
                         gaps_bridged += 1
                         
                 except Exception as e:
-                    logger.warning(f"Failed to bridge gap: {e}")
+                    logger.warning(f"Failed to bridge gap: {e}, using direct connection")
                     out.append(first_pt)
                     gaps_bridged += 1
             
-            # now append the segment (skip first point which we already appended)
+            # now add this edge's geometry, skipping its first point (we have it)
             out.extend(seg[1:])
         
         # Final continuity repair pass
@@ -492,6 +494,8 @@ class RouteConnector:
         logger.info(f"bridge_route_gaps complete: bridged {gaps_bridged} gaps, total distance: {total_gap_distance:.0f}m")
         logger.info(f"Route validation: max_gap={max_gap:.1f}m, violations={violations}")
         
+        continuity_valid = violations == 0
+        
         return out
     
     async def _repair_continuity(
@@ -500,54 +504,24 @@ class RouteConnector:
         profile: str
     ) -> int:
         """
-        Final pass: stitch any remaining gaps > SNAP_EPS_M, with loop guards.
+        Final pass: single-pass repair with loop-proof advancement
         """
         if not coords or len(coords) < 2:
             return 0
         
         fixed = 0
         i = 0
-        max_fixes = 50  # hard stop - reduced to prevent excessive API calls
-        seen = set()  # (i, round(gap,1)) loop guard
+        MAX_FIXES = 200  # hard stop
         
-        # First pass: count how many gaps we have
-        gap_count = 0
-        for j in range(len(coords) - 1):
-            gap = self._haversine(tuple(coords[j]), tuple(coords[j + 1]))
-            if gap > SNAP_EPS_M:
-                gap_count += 1
-        
-        if gap_count > 20:
-            logger.warning(f"Final repair: Found {gap_count} gaps - this suggests main stitching failed!")
-            logger.warning("Limiting to first 50 fixes to prevent excessive API calls")
-        
-        while i < len(coords) - 1 and fixed < max_fixes:
-            a = coords[i]
-            b = coords[i + 1]
+        while i < len(coords) - 1 and fixed < MAX_FIXES:
+            a, b = coords[i], coords[i+1]
             gap = self._haversine(tuple(a), tuple(b))
             
-            if gap <= SNAP_EPS_M:
+            if gap <= 12.0:  # Use same threshold as main phase
                 i += 1
                 continue
             
-            key = (i, round(gap, 1))
-            if key in seen:
-                # we are not making progress at this index → force snap
-                logger.error(f"Final repair stuck at i={i}, gap={gap:.1f}m — forcing snap")
-                coords[i + 1] = [a[0], a[1]]
-                fixed += 1
-                i += 1
-                continue
-            seen.add(key)
-            
-            if gap <= SMALL_JOIN_M:
-                # direct tiny join
-                coords[i + 1] = [a[0], a[1]]  # snap next to current
-                fixed += 1
-                i += 1
-                continue
-            
-            # route bigger gaps
+            # try routing once
             logger.warning(f"Final repair: Found {gap:.1f}m gap at index {i}")
             try:
                 if hasattr(self.ors_client, 'route_between_points'):
@@ -560,68 +534,62 @@ class RouteConnector:
                     )
                 
                 if bridge and len(bridge) > 1:
-                    # snap the bridge ends to a/b to guarantee closure
                     bridge[0] = [a[0], a[1]]
                     bridge[-1] = [b[0], b[1]]
-                    
-                    # Replace exactly the gap edge [a, b] with the bridge polyline
-                    # so we don't duplicate 'a' or lose 'b'
-                    coords[i:i+2] = bridge
+                    coords[i:i+2] = bridge  # replace exactly the gap edge
                     fixed += 1
-                    
-                    # Advance past the newly-inserted bridge (at least one step)
-                    i += max(1, len(bridge) - 1)
+                    i += max(1, len(bridge) - 1)  # advance past inserted polyline
                     continue
-                    
             except Exception as e:
-                logger.error(f"Final repair failed: {e}")
+                logger.error(f"Final repair routing failed: {e}")
             
-            # Fallback if routing failed: snap b to a and move on
-            coords[i + 1] = [a[0], a[1]]
+            # fallback: snap b to a (guarantee progress)
+            coords[i+1] = [a[0], a[1]]
             fixed += 1
             i += 1
         
-        if fixed >= max_fixes:
-            logger.error(f"Final repair aborted after {fixed} fixes to avoid infinite loop")
+        if fixed >= MAX_FIXES:
+            logger.error(f"Final repair aborted after {fixed} fixes (hit limit)")
         
         if fixed > 0:
-            logger.info(f"Final repair fixed {fixed} gaps")
+            logger.info(f"Final continuity repair fixed {fixed} gaps")
         return fixed
     
     def validate_route_continuity(
         self,
         coords: List[List[float]],
         max_gap: float = None
-    ) -> Tuple[bool, List[Tuple[int, float]]]:
+    ) -> Tuple[float, int]:
         """
         Validate route continuity
         
         Args:
             coords: Route coordinates
-            max_gap: Maximum allowed gap
+            max_gap: Maximum allowed gap (default 12m)
         
         Returns:
-            (is_valid, list of (index, gap_distance) for violations)
+            (max_gap_found, violation_count)
         """
         
-        max_gap = max_gap or self.max_gap
-        violations = []
+        max_gap_threshold = max_gap or 12.0  # Same as main phase threshold
+        max_gap_found = 0.0
+        violations = 0
         
         for i in range(len(coords) - 1):
             p1 = tuple(coords[i])
             p2 = tuple(coords[i + 1])
             
             distance = self._haversine(p1, p2)
+            max_gap_found = max(max_gap_found, distance)
             
-            if distance > max_gap:
-                violations.append((i, distance))
+            if distance > max_gap_threshold:
+                violations += 1
+                if violations <= 5:  # Log first few violations
+                    logger.warning(f"  Gap at index {i}: {distance:.1f}m")
         
-        is_valid = len(violations) == 0
+        is_valid = violations == 0
         
-        if violations:
-            logger.warning(f"Found {len(violations)} continuity violations")
-            # Log worst violations
-            for idx, dist in sorted(violations, key=lambda x: x[1], reverse=True)[:5]:
-                logger.warning(f"  Gap at index {idx}: {dist:.1f}m")
+        if violations > 0:
+            logger.warning(f"Found {violations} continuity violations (max gap: {max_gap_found:.1f}m)")
         
-        return is_valid, violations
+        return max_gap_found, violations
