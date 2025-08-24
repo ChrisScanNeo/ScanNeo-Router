@@ -18,11 +18,16 @@ class Settings(BaseSettings):
     # OpenRouteService - REQUIRED for route generation
     # Will use a default empty string if not set, but will warn
     ors_api_key: str = Field('', env='ORS_API_KEY')
+    openrouteservice_api_key: str = Field('', env='ORS_API_KEY')  # Alias for compatibility
     
     # OpenRouteService endpoints
     ors_directions_url: str = Field(
         "https://api.openrouteservice.org/v2/directions/driving-car/json",
         env='ORS_DIRECTIONS_URL'
+    )
+    openrouteservice_url: str = Field(
+        "https://api.openrouteservice.org/v2/directions/",
+        env='ORS_BASE_URL'
     )
     ors_matrix_url: str = Field(
         "https://api.openrouteservice.org/v2/matrix/driving-car",
@@ -61,8 +66,12 @@ class Settings(BaseSettings):
     service_name: str = "scanneo-worker"
     service_version: str = "1.0.4-debug"
     
-    @validator('ors_api_key')
-    def validate_ors_key(cls, v):
+    @validator('ors_api_key', 'openrouteservice_api_key')
+    def validate_ors_key(cls, v, values):
+        # Sync both fields
+        if 'ors_api_key' in values and values['ors_api_key']:
+            v = values['ors_api_key']
+        
         if not v or v == "":
             print("WARNING: ORS_API_KEY environment variable not set or empty", file=sys.stderr)
             print("Route generation will work but may have gaps without ORS routing", file=sys.stderr)

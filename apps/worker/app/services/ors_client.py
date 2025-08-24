@@ -281,6 +281,49 @@ class ORSClient:
                         matrix[i][j] = self._haversine(locations[i], locations[j])
             return matrix
     
+    async def route_between_points(
+        self,
+        start: List[float],
+        end: List[float],
+        profile: str = "driving-car",
+        steps: bool = False
+    ) -> List[List[float]]:
+        """
+        Get route coordinates between two points for stitching SCC circuits.
+        
+        Args:
+            start: [lon, lat] list
+            end: [lon, lat] list  
+            profile: routing profile
+            steps: whether to include turn-by-turn steps
+        
+        Returns:
+            List of [lon, lat] coordinates for direct stitching
+        """
+        
+        # Trivial case - same point
+        if start == end:
+            return [start]
+        
+        # If ORS is not enabled, return straight line with warning
+        if not self.enabled:
+            logger.warning("ORS not enabled (no API key), using straight-line connector")
+            return [start, end]
+        
+        # Try to get route from ORS
+        try:
+            coords, _ = await self.get_route(
+                tuple(start),
+                tuple(end),
+                profile=profile
+            )
+            return coords
+            
+        except Exception as e:
+            logger.warning(f"Failed to get route between points: {e}")
+            logger.warning("Falling back to straight-line connector")
+            return [start, end]
+    
     def _haversine(self, p1: Tuple[float, float], p2: Tuple[float, float]) -> float:
         """Calculate haversine distance in meters"""
         from math import radians, sin, cos, atan2, sqrt

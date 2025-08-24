@@ -161,14 +161,13 @@ class JobProcessor:
                 'diagnostics': {
                     'graph_nodes': diagnostics.get('graph_nodes', 0),
                     'graph_edges': diagnostics.get('graph_edges', 0),
-                    'components_before': diagnostics.get('components_before', 0),
-                    'components_after': diagnostics.get('components_after', 0),
-                    'odd_nodes': diagnostics.get('odd_nodes', 0),
-                    'matched_pairs': diagnostics.get('matched_pairs', 0),
-                    'deadhead_ratio': diagnostics.get('deadhead_ratio', 0),
+                    'scc_count': diagnostics.get('scc_count', 0),
+                    'circuits_found': diagnostics.get('circuits_found', 0),
+                    'scc_stats': diagnostics.get('scc_stats', []),
                     'max_gap_m': diagnostics.get('max_gap_m', 0),
                     'continuity_valid': diagnostics.get('continuity_valid', True),
-                    'violations': diagnostics.get('continuity_violations', 0)
+                    'violations': diagnostics.get('continuity_violations', 0),
+                    'route_points': diagnostics.get('route_points', 0)
                 }
             })
             
