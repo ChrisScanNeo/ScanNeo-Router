@@ -62,6 +62,9 @@ class JobProcessor:
         
         logger.info(f"Processing job {job_id} for area {area_id}")
         
+        # Track processing time
+        start_time = asyncio.get_event_loop().time()
+        
         try:
             # Update progress: Starting
             db.update_job_status(job_id, 'processing', 10, metadata={

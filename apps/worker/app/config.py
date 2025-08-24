@@ -2,7 +2,6 @@
 Configuration settings for the worker service
 """
 
-import os
 import sys
 from typing import Optional
 from pydantic_settings import BaseSettings
