@@ -76,7 +76,7 @@ class Database:
                     updated_at = NOW()
                     WHERE id = (
                         SELECT id FROM coverage_routes
-                        WHERE status = 'pending'
+                        WHERE status IN ('pending', 'queued')
                         ORDER BY created_at ASC
                         LIMIT 1
                         FOR UPDATE SKIP LOCKED

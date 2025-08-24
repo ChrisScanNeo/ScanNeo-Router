@@ -294,7 +294,7 @@ async def debug_pending_jobs():
                 cur.execute("""
                     SELECT id, area_id, status, created_at 
                     FROM coverage_routes 
-                    WHERE status = 'pending'
+                    WHERE status IN ('pending', 'queued')
                     ORDER BY created_at ASC
                     LIMIT 5
                 """)
