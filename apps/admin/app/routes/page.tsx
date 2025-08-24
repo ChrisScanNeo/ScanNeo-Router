@@ -2,139 +2,160 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Header } from '@/components/Header';
-import showToast from '@/components/Toast';
+import toast from 'react-hot-toast';
 
 export default function RoutesPage() {
+  const [activeTab, setActiveTab] = useState<'generate' | 'active' | 'routes'>('generate');
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header
-        title="Coverage Routes"
-        subtitle="Generate & Manage Routes"
-        showBackButton={true}
-        backHref="/"
-        status="online"
-      />
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          {/* Route Generation */}
-          <div className="bg-white shadow rounded-lg mb-8">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                Generate New Route
-              </h3>
-              <p className="text-sm text-gray-500 mb-6">
-                Create optimized coverage routes using the Chinese Postman algorithm.
-              </p>
-
-              <RouteGenerator />
-            </div>
-          </div>
-
-          {/* Active Jobs */}
-          <div className="bg-white shadow rounded-lg mb-8">
-            <div className="px-4 py-5 sm:p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg leading-6 font-medium text-gray-900">Active Jobs</h3>
-                <button className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                  <svg
-                    className="h-4 w-4 mr-2"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                    />
-                  </svg>
-                  Refresh
-                </button>
-              </div>
-
-              <JobsList />
-            </div>
-          </div>
-
-          {/* Routes List */}
-          <div className="bg-white shadow rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg leading-6 font-medium text-gray-900">Generated Routes</h3>
-                <div className="flex space-x-2">
-                  <button className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                    <svg
-                      className="h-4 w-4 mr-2"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-                      />
-                    </svg>
-                    Filter
-                  </button>
-                  <button className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                    <svg
-                      className="h-4 w-4 mr-2"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                      />
-                    </svg>
-                    Export
-                  </button>
-                </div>
-              </div>
-
-              <RoutesList />
-            </div>
-          </div>
+    <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      {/* Header with Cancel All button */}
+      <div className="md:flex md:items-center md:justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-[#1C2F38]">Coverage Routes</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Generate optimal driving routes to cover all streets in an area
+          </p>
         </div>
-      </main>
+        <CancelAllButton />
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200 mb-6">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('generate')}
+            className={`${
+              activeTab === 'generate'
+                ? 'border-[#00B140] text-[#00B140]'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+          >
+            Generate Route
+          </button>
+          <button
+            onClick={() => setActiveTab('active')}
+            className={`${
+              activeTab === 'active'
+                ? 'border-[#00B140] text-[#00B140]'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+          >
+            Active Jobs
+          </button>
+          <button
+            onClick={() => setActiveTab('routes')}
+            className={`${
+              activeTab === 'routes'
+                ? 'border-[#00B140] text-[#00B140]'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+          >
+            All Routes
+          </button>
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'generate' && <GenerateRouteForm />}
+      {activeTab === 'active' && <JobsList />}
+      {activeTab === 'routes' && <RoutesList />}
     </div>
   );
 }
 
-function RouteGenerator() {
-  const [selectedArea, setSelectedArea] = useState('');
-  const [chunkDuration, setChunkDuration] = useState(3600); // 1 hour default
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [areas, setAreas] = useState<{ id: string; name: string }[]>([]);
-  const [loadingAreas, setLoadingAreas] = useState(true);
+function CancelAllButton() {
+  const [isCancelling, setIsCancelling] = useState(false);
 
-  // Fetch real areas from API
+  const handleCancelAll = async () => {
+    if (!confirm('Are you sure you want to cancel all running jobs?')) {
+      return;
+    }
+
+    setIsCancelling(true);
+    try {
+      const response = await fetch('/api/routes/cancel-all', {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to cancel jobs');
+      }
+
+      const data = await response.json();
+      if (data.cancelledCount > 0) {
+        toast.success(`Cancelled ${data.cancelledCount} job(s)`);
+        window.dispatchEvent(new Event('jobs-updated'));
+      } else {
+        toast('No running jobs to cancel', { icon: '📋' });
+      }
+    } catch (error) {
+      console.error('Error cancelling jobs:', error);
+      toast.error('Failed to cancel jobs');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleCancelAll}
+      disabled={isCancelling}
+      className="mt-3 sm:mt-0 inline-flex items-center px-4 py-2 border border-red-300 rounded-md shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      {isCancelling ? (
+        <>
+          <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            />
+          </svg>
+          Cancelling...
+        </>
+      ) : (
+        <>
+          <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+          Cancel All Jobs
+        </>
+      )}
+    </button>
+  );
+}
+
+function GenerateRouteForm() {
+  const [areas, setAreas] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedArea, setSelectedArea] = useState('');
+  const [chunkDuration, setChunkDuration] = useState(3600);
+  const [isGenerating, setIsGenerating] = useState(false);
+
   useEffect(() => {
     const fetchAreas = async () => {
       try {
         const response = await fetch('/api/areas');
+        if (!response.ok) throw new Error('Failed to fetch areas');
         const data = await response.json();
-        if (data.success && data.areas) {
-          setAreas(
-            data.areas.map((area: { id: string; name: string }) => ({
-              id: area.id,
-              name: area.name,
-            }))
-          );
-        }
+        setAreas(data.map((a: { id: string; name: string }) => ({ id: a.id, name: a.name })));
+        if (data.length > 0) setSelectedArea(data[0].id);
       } catch (error) {
         console.error('Failed to fetch areas:', error);
-      } finally {
-        setLoadingAreas(false);
+        toast.error('Failed to load areas');
       }
     };
     fetchAreas();
@@ -145,55 +166,43 @@ function RouteGenerator() {
 
     setIsGenerating(true);
     try {
-      const selectedAreaName = areas.find((a) => a.id === selectedArea)?.name || 'Unknown';
-
-      // Call the routes API to create a new route
-      const response = await fetch('/api/routes', {
+      const response = await fetch('/api/coverage/generate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          area_id: selectedArea,
-          profile: 'driving-car',
+          areaId: selectedArea,
           chunkDuration: chunkDuration,
         }),
       });
 
+      if (!response.ok) throw new Error('Failed to generate route');
+
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate route');
-      }
-
-      showToast.success(`Route generation started for ${selectedAreaName}! Route ID: ${data.id}`);
-
-      // Trigger refresh of jobs list
+      toast.success(`Route generation started! Job ID: ${data.jobId.slice(0, 8)}...`);
       window.dispatchEvent(new Event('jobs-updated'));
+      setSelectedArea('');
     } catch (error) {
-      showToast.error(
-        'Error generating route: ' + (error instanceof Error ? error.message : 'Unknown error')
-      );
+      console.error('Failed to generate route:', error);
+      toast.error('Failed to start route generation');
     } finally {
       setIsGenerating(false);
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="bg-white shadow overflow-hidden sm:rounded-lg p-6 space-y-6">
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <div>
-          <label htmlFor="area-select" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="area" className="block text-sm font-medium text-gray-700">
             Select Area
           </label>
           <select
-            id="area-select"
+            id="area"
             value={selectedArea}
             onChange={(e) => setSelectedArea(e.target.value)}
             className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            disabled={loadingAreas}
           >
-            <option value="">{loadingAreas ? 'Loading areas...' : 'Choose an area...'}</option>
+            <option value="">Select an area...</option>
             {areas.map((area) => (
               <option key={area.id} value={area.id}>
                 {area.name}
@@ -204,7 +213,7 @@ function RouteGenerator() {
 
         <div>
           <label htmlFor="chunk-duration" className="block text-sm font-medium text-gray-700">
-            Chunk Duration (seconds)
+            Chunk Duration
           </label>
           <select
             id="chunk-duration"
@@ -220,69 +229,31 @@ function RouteGenerator() {
         </div>
       </div>
 
-      <div>
-        <button
-          onClick={handleGenerate}
-          disabled={!selectedArea || isGenerating}
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
-        >
-          {isGenerating ? (
-            <>
-              <svg
-                className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              Generating Route...
-            </>
-          ) : (
-            'Generate Coverage Route'
-          )}
-        </button>
-      </div>
+      <button
+        onClick={handleGenerate}
+        disabled={!selectedArea || isGenerating}
+        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
+      >
+        {isGenerating ? 'Generating Route...' : 'Generate Coverage Route'}
+      </button>
     </div>
   );
 }
 
 function JobsList() {
   const [jobs, setJobs] = useState<
-    Array<{
-      id: string;
-      routeId: string;
-      areaName: string;
-      status: string;
-      progress: number;
-      createdAt: string;
-    }>
+    Array<{ id: string; areaName: string; status: string; progress: number; createdAt: string }>
   >([]);
   const [loading, setLoading] = useState(true);
 
   const fetchJobs = async () => {
     try {
       const response = await fetch('/api/routes');
-      if (!response.ok) {
-        throw new Error('Failed to fetch routes');
-      }
+      if (!response.ok) throw new Error('Failed to fetch routes');
       const data = await response.json();
 
-      // Filter for pending/processing jobs and sort by creation time
       const activeJobs = data
-        .filter((r: { status: string }) => r.status === 'pending' || r.status === 'processing')
+        .filter((r: { status: string }) => r.status === 'queued' || r.status === 'processing')
         .map(
           (r: {
             id: string;
@@ -291,88 +262,58 @@ function JobsList() {
             progress?: number;
             created_at: string;
           }) => ({
-            id: `job_${r.id}`,
-            routeId: r.id,
+            id: r.id,
             areaName: r.area_name,
             status: r.status,
             progress: r.progress || (r.status === 'processing' ? 50 : 0),
             createdAt: r.created_at,
           })
         );
+
       setJobs(activeJobs);
     } catch (error) {
       console.error('Failed to fetch jobs:', error);
+      toast.error('Failed to load active jobs');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleCancel = async (jobId: string) => {
+    try {
+      const response = await fetch(`/api/routes/${jobId}/cancel`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) throw new Error('Failed to cancel job');
+
+      toast.success('Job cancelled');
+      fetchJobs();
+      window.dispatchEvent(new Event('jobs-updated'));
+    } catch (error) {
+      console.error('Error cancelling job:', error);
+      toast.error('Failed to cancel job');
+    }
+  };
+
   useEffect(() => {
     fetchJobs();
-
-    // Listen for job updates
+    const interval = setInterval(fetchJobs, 5000);
     const handleUpdate = () => fetchJobs();
     window.addEventListener('jobs-updated', handleUpdate);
 
-    // Auto-refresh every 5 seconds for active jobs
-    const interval = setInterval(() => {
-      if (jobs.length > 0) {
-        fetchJobs();
-      }
-    }, 5000);
-
     return () => {
-      window.removeEventListener('jobs-updated', handleUpdate);
       clearInterval(interval);
+      window.removeEventListener('jobs-updated', handleUpdate);
     };
-  }, [jobs.length]);
+  }, []);
 
-  if (loading) {
-    return (
-      <div className="text-center py-4">
-        <svg
-          className="animate-spin h-6 w-6 text-[#00B140] mx-auto"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          ></circle>
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-          ></path>
-        </svg>
-        <p className="mt-2 text-sm text-gray-500">Loading jobs...</p>
-      </div>
-    );
-  }
+  if (loading) return <div className="text-center py-8">Loading...</div>;
 
   if (jobs.length === 0) {
     return (
       <div className="text-center py-8">
-        <svg
-          className="mx-auto h-12 w-12 text-gray-400"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-        <h3 className="mt-2 text-sm font-medium text-gray-900">No active jobs</h3>
-        <p className="mt-1 text-sm text-gray-500">Generate a route to see processing jobs here.</p>
+        <p className="text-gray-500">No active jobs</p>
       </div>
     );
   }
@@ -380,44 +321,28 @@ function JobsList() {
   return (
     <div className="space-y-4">
       {jobs.map((job) => (
-        <div key={job.id} className="border border-[#1C2F38]/20 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="text-sm font-medium text-[#1C2F38]">{job.areaName}</h4>
-            <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                job.status === 'processing'
-                  ? 'bg-blue-100 text-blue-800'
-                  : job.status === 'pending'
-                    ? 'bg-yellow-100 text-yellow-800'
-                    : job.status === 'completed'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
-              }`}
+        <div key={job.id} className="bg-white shadow rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-900">{job.areaName}</h3>
+              <p className="text-sm text-gray-500">
+                Status: {job.status} • Started: {new Date(job.createdAt).toLocaleTimeString()}
+              </p>
+            </div>
+            <button
+              onClick={() => handleCancel(job.id)}
+              className="px-3 py-1 text-sm text-red-600 hover:text-red-900 border border-red-300 rounded hover:bg-red-50"
             >
-              {job.status}
-            </span>
+              Cancel
+            </button>
           </div>
-
-          <div className="mb-2">
-            <div className="flex justify-between text-sm text-gray-600 mb-1">
-              <span>
-                {job.status === 'pending'
-                  ? 'Waiting to start...'
-                  : 'Processing route generation...'}
-              </span>
-              <span>{job.progress}%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="mt-3">
+            <div className="bg-gray-200 rounded-full h-2">
               <div
-                className="bg-[#00B140] h-2 rounded-full transition-all duration-300"
+                className="bg-green-600 h-2 rounded-full transition-all duration-500"
                 style={{ width: `${job.progress}%` }}
-              ></div>
+              />
             </div>
-          </div>
-
-          <div className="flex justify-between items-center text-xs text-gray-500">
-            <span>Job ID: {job.id}</span>
-            <span>Created {new Date(job.createdAt).toLocaleTimeString()}</span>
           </div>
         </div>
       ))}
@@ -427,110 +352,71 @@ function JobsList() {
 
 function RoutesList() {
   const [routes, setRoutes] = useState<
-    Array<{
-      id: string;
-      areaName: string;
-      profile: string;
-      lengthM: number;
-      driveTimeS: number;
-      status: string;
-      createdAt: string;
-    }>
+    Array<{ id: string; area_name: string; status: string; length_m?: number; created_at: string }>
   >([]);
   const [loading, setLoading] = useState(true);
 
   const fetchRoutes = async () => {
     try {
       const response = await fetch('/api/routes');
-      if (!response.ok) {
-        throw new Error('Failed to fetch routes');
-      }
+      if (!response.ok) throw new Error('Failed to fetch routes');
       const data = await response.json();
-
-      // Transform the data to match the expected format
-      const transformedRoutes = data.map(
-        (route: {
-          id: string;
-          area_name: string;
-          profile: string;
-          length_m?: number;
-          drive_time_s?: number;
-          status: string;
-          created_at: string;
-        }) => ({
-          id: route.id,
-          areaName: route.area_name,
-          profile: route.profile,
-          lengthM: route.length_m || 0,
-          driveTimeS: route.drive_time_s || 0,
-          status: route.status,
-          createdAt: route.created_at,
-        })
-      );
-
-      setRoutes(transformedRoutes);
+      setRoutes(data);
     } catch (error) {
       console.error('Failed to fetch routes:', error);
+      toast.error('Failed to load routes');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleDelete = async (routeId: string) => {
+    if (!confirm('Are you sure you want to delete this route?')) return;
+
+    try {
+      const response = await fetch(`/api/routes/${routeId}/delete`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) throw new Error('Failed to delete route');
+
+      toast.success('Route deleted');
+      fetchRoutes();
+    } catch (error) {
+      console.error('Error deleting route:', error);
+      toast.error('Failed to delete route');
+    }
+  };
+
+  const handleCancel = async (routeId: string) => {
+    try {
+      const response = await fetch(`/api/routes/${routeId}/cancel`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) throw new Error('Failed to cancel route');
+
+      toast.success('Route cancelled');
+      fetchRoutes();
+    } catch (error) {
+      console.error('Error cancelling route:', error);
+      toast.error('Failed to cancel route');
+    }
+  };
+
   useEffect(() => {
     fetchRoutes();
-
-    // Listen for job updates (routes might complete)
     const handleUpdate = () => fetchRoutes();
     window.addEventListener('jobs-updated', handleUpdate);
-
-    return () => {
-      window.removeEventListener('jobs-updated', handleUpdate);
-    };
+    return () => window.removeEventListener('jobs-updated', handleUpdate);
   }, []);
 
-  if (loading) {
-    return (
-      <div className="text-center py-8">
-        <svg
-          className="animate-spin h-8 w-8 text-[#00B140] mx-auto"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          ></circle>
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-          ></path>
-        </svg>
-        <p className="mt-2 text-sm text-gray-500">Loading routes...</p>
-      </div>
-    );
-  }
+  if (loading) return <div className="text-center py-8">Loading...</div>;
 
   if (routes.length === 0) {
     return (
       <div className="text-center py-8">
-        <svg
-          className="mx-auto h-12 w-12 text-gray-400"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-        <h3 className="mt-2 text-sm font-medium text-gray-900">No routes generated</h3>
-        <p className="mt-1 text-sm text-gray-500">
-          Generate your first coverage route to see it here.
-        </p>
+        <p className="text-gray-500">No routes generated yet</p>
       </div>
     );
   }
@@ -540,25 +426,19 @@ function RoutesList() {
       <table className="min-w-full divide-y divide-gray-300">
         <thead className="bg-gray-50">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-[#4C4FA3] uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
               Area
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-[#4C4FA3] uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
               Status
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-[#4C4FA3] uppercase tracking-wider">
-              Profile
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-[#4C4FA3] uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
               Distance
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-[#4C4FA3] uppercase tracking-wider">
-              Time
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-[#4C4FA3] uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
               Created
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-[#4C4FA3] uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
               Actions
             </th>
           </tr>
@@ -566,53 +446,60 @@ function RoutesList() {
         <tbody className="bg-white divide-y divide-gray-200">
           {routes.map((route) => (
             <tr key={route.id}>
-              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#1C2F38]">
-                {route.areaName}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm">
+              <td className="px-6 py-4 whitespace-nowrap text-sm">{route.area_name}</td>
+              <td className="px-6 py-4 whitespace-nowrap">
                 <span
-                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  className={`px-2 py-1 text-xs rounded-full ${
                     route.status === 'completed'
                       ? 'bg-green-100 text-green-800'
-                      : route.status === 'processing'
-                        ? 'bg-blue-100 text-blue-800'
-                        : route.status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-gray-100 text-gray-800'
+                      : route.status === 'failed'
+                        ? 'bg-red-100 text-red-800'
+                        : route.status === 'cancelled'
+                          ? 'bg-gray-100 text-gray-800'
+                          : route.status === 'processing'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-yellow-100 text-yellow-800'
                   }`}
                 >
-                  {route.status || 'pending'}
+                  {route.status}
                 </span>
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{route.profile}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {route.lengthM > 0 ? `${(route.lengthM / 1000).toFixed(1)} km` : '—'}
+              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                {route.length_m ? `${(route.length_m / 1000).toFixed(1)} km` : '-'}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {route.driveTimeS > 0 ? `${(route.driveTimeS / 3600).toFixed(1)} hrs` : '—'}
+                {new Date(route.created_at).toLocaleDateString()}
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {new Date(route.createdAt).toLocaleDateString()}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                {route.status === 'completed' ? (
-                  <>
+              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                <div className="flex space-x-2">
+                  {route.status === 'completed' && (
                     <Link
                       href={`/routes/${route.id}`}
-                      className="text-[#00B140] hover:text-[#00A038]"
+                      className="text-blue-600 hover:text-blue-900"
                     >
                       View
                     </Link>
-                    <Link
-                      href={`/map?route=${route.id}`}
-                      className="text-[#4C4FA3] hover:text-[#3A3D80]"
+                  )}
+                  {(route.status === 'failed' ||
+                    route.status === 'cancelled' ||
+                    route.status === 'completed' ||
+                    route.status === 'completed_with_warnings') && (
+                    <button
+                      onClick={() => handleDelete(route.id)}
+                      className="text-red-600 hover:text-red-900"
                     >
-                      Map
-                    </Link>
-                  </>
-                ) : (
-                  <span className="text-gray-400">Processing...</span>
-                )}
+                      Delete
+                    </button>
+                  )}
+                  {(route.status === 'processing' || route.status === 'queued') && (
+                    <button
+                      onClick={() => handleCancel(route.id)}
+                      className="text-orange-600 hover:text-orange-900"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
               </td>
             </tr>
           ))}
