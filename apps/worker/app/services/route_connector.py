@@ -441,9 +441,14 @@ class RouteConnector:
             first_pt = seg[0]
             gap = self._haversine(tuple(last_pt), tuple(first_pt))
             
+            # Log significant gaps for debugging
+            if gap > 10.0:
+                logger.info(f"Edge {idx}/{len(circuit)}: Found {gap:.1f}m gap between edges")
+                logger.debug(f"  Last point: {last_pt}, First point: {first_pt}")
+            
             # ALWAYS ensure continuity before adding seg[1:]
-            # 1) tiny/small gaps: just insert the start point
-            if gap <= 12.0:  # 12m threshold to minimize ORS calls
+            # 1) small gaps: just insert the start point (increased threshold)
+            if gap <= 20.0:  # Increased to 20m to catch more gaps without ORS
                 if gap > 0:
                     logger.debug(f"Edge {idx}: Closing {gap:.2f}m gap with direct join")
                     out.append(first_pt)  # <- actually close the gap
@@ -517,7 +522,7 @@ class RouteConnector:
             a, b = coords[i], coords[i+1]
             gap = self._haversine(tuple(a), tuple(b))
             
-            if gap <= 12.0:  # Use same threshold as main phase
+            if gap <= 20.0:  # Use same threshold as main phase
                 i += 1
                 continue
             

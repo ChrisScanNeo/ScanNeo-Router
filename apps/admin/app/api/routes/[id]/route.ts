@@ -16,6 +16,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         r.updated_at,
         r.profile,
         r.params,
+        r.status,
+        r.progress,
+        r.error,
+        r.metadata,
         ST_AsGeoJSON(r.geom)::json as geojson,
         r.length_m,
         r.drive_time_s
@@ -48,16 +52,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       console.warn('Could not fetch chunks:', chunksError);
     }
 
-    // Extract status info from params JSONB
+    // Route now has status as top-level columns
     const routeRecord = route[0];
-    const routeParams = routeRecord.params as Record<string, unknown>;
 
     const routeData = {
       ...routeRecord,
-      status: routeParams?.status || 'pending',
-      progress: routeParams?.progress || 0,
-      error: routeParams?.error || null,
-      metadata: routeParams?.metadata || {},
+      status: routeRecord.status || 'pending',
+      progress: routeRecord.progress || 0,
+      error: routeRecord.error || null,
+      metadata: routeRecord.metadata || {},
       chunks,
     };
 
