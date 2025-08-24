@@ -266,9 +266,35 @@ async def status():
     # Could add metrics here
     return {
         "status": "running",
-        "processor_active": job_processor.running,
-        "environment": settings.environment
+        "processor_active": job_processor.running if job_processor else False,
+        "environment": settings.environment if settings else "unknown"
     }
+
+
+@app.get("/debug/pending-jobs")
+async def debug_pending_jobs():
+    """Debug endpoint to check for pending jobs"""
+    if not db:
+        return {"error": "Database not configured"}
+    
+    try:
+        # Get pending job
+        job = db.get_pending_job()
+        
+        # Also get count of all jobs
+        all_jobs = db.execute_query("SELECT COUNT(*) as count, status FROM coverage_routes GROUP BY status")
+        
+        return {
+            "pending_job": job,
+            "job_counts": all_jobs,
+            "poll_interval": settings.poll_interval if settings else 30,
+            "processor_running": job_processor.running if job_processor else False
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "type": type(e).__name__
+        }
 
 
 if __name__ == "__main__":
