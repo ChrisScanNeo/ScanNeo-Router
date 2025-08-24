@@ -18,7 +18,7 @@ GEOD = Geod(ellps="WGS84")
 
 # Gap handling thresholds
 SNAP_EPS_M = 1.0    # If within this, just snap (no routing needed)
-SMALL_JOIN_M = 8.0  # If <= this, don't call ORS; just connect with direct segment
+SMALL_JOIN_M = 15.0  # If <= this, don't call ORS; just connect with direct segment
 
 
 def _align(u: Tuple[float, float], v: Tuple[float, float], coords: List[List[float]]) -> List[List[float]]:
@@ -510,9 +510,8 @@ class RouteConnector:
             b = coords[i + 1]
             gap = self._haversine(tuple(a), tuple(b))
             
-            if gap > SNAP_EPS_M and gap > SMALL_JOIN_M:
-                # This shouldn't happen if bridge_route_gaps worked correctly,
-                # but let's fix it anyway
+            if gap > SMALL_JOIN_M:
+                # Only route large gaps - small ones should have been handled
                 logger.warning(f"Final repair: Found {gap:.1f}m gap at index {i}")
                 
                 try:
@@ -533,6 +532,11 @@ class RouteConnector:
                         continue
                 except Exception as e:
                     logger.error(f"Final repair failed: {e}")
+            elif gap > SNAP_EPS_M:
+                # Small gap - just connect directly without API call
+                logger.debug(f"Final repair: Direct connection for {gap:.1f}m gap at index {i}")
+                # Gap is acceptable for direct connection
+                fixed += 1
             
             i += 1
         
