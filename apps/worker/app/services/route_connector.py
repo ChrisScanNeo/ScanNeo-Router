@@ -446,16 +446,21 @@ class RouteConnector:
                 logger.info(f"Edge {idx}/{len(circuit)}: Found {gap:.1f}m gap between edges")
                 logger.debug(f"  Last point: {last_pt}, First point: {first_pt}")
             
-            # ALWAYS ensure continuity before adding seg[1:]
-            # 1) small gaps: just insert the start point (increased threshold)
-            if gap <= 20.0:  # Increased to 20m to catch more gaps without ORS
-                if gap > 0:
-                    logger.debug(f"Edge {idx}: Closing {gap:.2f}m gap with direct join")
-                    out.append(first_pt)  # <- actually close the gap
-                    gaps_bridged += 1
-                    total_gap_distance += gap
-            # 2) bigger gaps: route once
-            else:
+            # Handle gap based on size
+            if gap <= 0.001:  # Essentially no gap (< 1mm)
+                # Just append segment without any duplicate
+                out.extend(seg[1:])
+                
+            elif gap <= 20.0:  # Small gap - direct join without ORS
+                logger.debug(f"Edge {idx}: Closing {gap:.2f}m gap with direct join")
+                # Insert the start point to bridge the gap
+                out.append(first_pt)
+                # Then append rest of segment
+                out.extend(seg[1:])
+                gaps_bridged += 1
+                total_gap_distance += gap
+                
+            else:  # Large gap > 20m - use ORS routing
                 logger.info(f"Edge {idx}: Bridging {gap:.1f}m gap with ORS")
                 try:
                     if hasattr(self.ors_client, 'route_between_points'):
@@ -472,22 +477,23 @@ class RouteConnector:
                         bridge[0] = [last_pt[0], last_pt[1]]
                         bridge[-1] = [first_pt[0], first_pt[1]]
                         out.extend(bridge[1:])  # skip duplicate start
+                        # Now append the segment itself
+                        out.extend(seg[1:])
                         gaps_bridged += 1
                         total_gap_distance += gap
                         logger.info(f"  Bridged with {len(bridge)} points")
                     else:
-                        # fall back to inserting the start point
+                        # fall back to direct connection
                         logger.warning(f"  No route found, using direct connection")
                         out.append(first_pt)
+                        out.extend(seg[1:])
                         gaps_bridged += 1
                         
                 except Exception as e:
                     logger.warning(f"Failed to bridge gap: {e}, using direct connection")
                     out.append(first_pt)
+                    out.extend(seg[1:])
                     gaps_bridged += 1
-            
-            # now add this edge's geometry, skipping its first point (we have it)
-            out.extend(seg[1:])
         
         # Final continuity repair pass
         logger.info(f"Running final continuity repair... (main phase bridged {gaps_bridged} gaps)")
