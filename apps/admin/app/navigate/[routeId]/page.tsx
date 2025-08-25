@@ -436,7 +436,34 @@ export default function NavigationPage() {
       return;
     }
 
-    setNavState((prev) => ({ ...prev, isNavigating: true }));
+    // Set initial turn info when starting navigation
+    if (routeData && routeData.geometry.coordinates.length > 2) {
+      const coords = routeData.geometry.coordinates;
+      const firstPoint = coords[0] as [number, number];
+      const secondPoint = coords[1] as [number, number];
+      const thirdPoint = coords[2] as [number, number];
+      
+      // Calculate initial turn
+      const currentBearing = calculateBearing(firstPoint, secondPoint);
+      const nextBearing = calculateBearing(secondPoint, thirdPoint);
+      const turnType = getTurnType(currentBearing, nextBearing);
+      
+      // Set navigation state with initial turn
+      setNavState((prev) => ({ 
+        ...prev, 
+        isNavigating: true,
+        nextTurn: {
+          type: turnType as 'left' | 'right' | 'straight' | 'u-turn' | 'arrive',
+          distance: 100, // Default distance until we get real position
+          streetName: undefined
+        }
+      }));
+      
+      // Announce start
+      playAudioAlert('Navigation started. Follow the highlighted route.');
+    } else {
+      setNavState((prev) => ({ ...prev, isNavigating: true }));
+    }
 
     // Watch position with enhanced options
     watchId.current = navigator.geolocation.watchPosition(
@@ -484,7 +511,7 @@ export default function NavigationPage() {
         timeout: 5000,
       }
     );
-  }, [navState.isNavigating]);
+  }, [navState.isNavigating, routeData, calculateBearing, getTurnType, playAudioAlert, checkRouteProgress]);
 
   // Check route progress and off-route status
   const checkRouteProgress = useCallback(
@@ -884,8 +911,27 @@ export default function NavigationPage() {
         <div>Off Route: {navState.offRoute ? '⚠️ Yes' : '✅ No'}</div>
         <div>Route Data: {routeData ? '✅ Loaded' : '❌ Not loaded'}</div>
         <div>Map Ready: {mapReady ? '✅ Yes' : '❌ No'}</div>
+        <div>Next Turn: {navState.nextTurn ? `${navState.nextTurn.type} in ${Math.round(navState.nextTurn.distance)}m` : 'None'}</div>
         <div className="mt-2 pt-2 border-t">
           <div>Screen: {typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'N/A'}</div>
+          {/* Demo button to simulate turn */}
+          <button 
+            onClick={() => {
+              setNavState(prev => ({
+                ...prev,
+                nextTurn: {
+                  type: 'left',
+                  distance: 150,
+                  streetName: 'Demo Street'
+                },
+                isNavigating: true
+              }));
+              playAudioAlert('In 150 meters, turn left');
+            }}
+            className="mt-2 px-2 py-1 bg-blue-500 text-white rounded text-xs"
+          >
+            Test Turn Display
+          </button>
         </div>
       </div>
 
