@@ -69,6 +69,7 @@ export default function NavigationPage() {
 
   const [mapReady, setMapReady] = useState(false);
   const [initializing, setInitializing] = useState(false);
+  const [showDebug, setShowDebug] = useState(true);
 
   // Initialize map
   useEffect(() => {
@@ -920,50 +921,83 @@ export default function NavigationPage() {
         }}
       />
 
-      {/* Debug GPS Info - Remove after testing */}
-      <div className="fixed top-24 left-4 bg-white bg-opacity-95 text-black p-3 rounded-lg z-30 text-sm max-w-xs shadow-lg">
-        <div className="font-bold mb-2">GPS Debug Info:</div>
-        <div>
-          Position:{' '}
-          {navState.currentPosition
-            ? `${navState.currentPosition[1].toFixed(5)}, ${navState.currentPosition[0].toFixed(5)}`
-            : 'Not available'}
-        </div>
-        <div>Navigation: {navState.isNavigating ? '✅ Active' : '❌ Not started'}</div>
-        <div>Off Route: {navState.offRoute ? '⚠️ Yes' : '✅ No'}</div>
-        <div>Route Data: {routeData ? '✅ Loaded' : '❌ Not loaded'}</div>
-        <div>Map Ready: {mapReady ? '✅ Yes' : '❌ No'}</div>
-        <div>
-          Next Turn:{' '}
-          {navState.nextTurn
-            ? `${navState.nextTurn.type} in ${Math.round(navState.nextTurn.distance)}m`
-            : 'None'}
-        </div>
-        <div className="mt-2 pt-2 border-t">
-          <div>
-            Screen:{' '}
-            {typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'N/A'}
+      {/* Debug GPS Info - Positioned at bottom above navigation button */}
+      {showDebug && (
+        <div className="fixed bottom-32 left-4 right-4 bg-white bg-opacity-95 text-black p-3 rounded-lg z-30 text-sm shadow-lg max-w-md mx-auto">
+          <div className="flex justify-between items-center mb-2">
+            <div className="font-bold">GPS Debug Info</div>
+            <button
+              onClick={() => setShowDebug(false)}
+              className="text-gray-500 hover:text-gray-700 text-lg font-bold"
+            >
+              ×
+            </button>
           </div>
-          {/* Demo button to simulate turn */}
-          <button
-            onClick={() => {
-              setNavState((prev) => ({
-                ...prev,
-                nextTurn: {
-                  type: 'left',
-                  distance: 150,
-                  streetName: 'Demo Street',
-                },
-                isNavigating: true,
-              }));
-              playAudioAlert('In 150 meters, turn left');
-            }}
-            className="mt-2 px-2 py-1 bg-blue-500 text-white rounded text-xs"
-          >
-            Test Turn Display
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <span className="font-semibold">Position:</span>{' '}
+              {navState.currentPosition
+                ? `${navState.currentPosition[1].toFixed(5)}, ${navState.currentPosition[0].toFixed(5)}`
+                : 'Not available'}
+            </div>
+            <div>
+              <span className="font-semibold">Navigation:</span>{' '}
+              {navState.isNavigating ? '✅ Active' : '❌ Not started'}
+            </div>
+            <div>
+              <span className="font-semibold">Off Route:</span>{' '}
+              {navState.offRoute ? '⚠️ Yes' : '✅ No'}
+            </div>
+            <div>
+              <span className="font-semibold">Route:</span>{' '}
+              {routeData ? '✅ Loaded' : '❌ Not loaded'}
+            </div>
+            <div>
+              <span className="font-semibold">Map:</span> {mapReady ? '✅ Ready' : '❌ Loading'}
+            </div>
+            <div>
+              <span className="font-semibold">Next Turn:</span>{' '}
+              {navState.nextTurn
+                ? `${navState.nextTurn.type} in ${Math.round(navState.nextTurn.distance)}m`
+                : 'None'}
+            </div>
+          </div>
+          <div className="mt-2 pt-2 border-t flex justify-between items-center">
+            <div>
+              <span className="font-semibold">Screen:</span>{' '}
+              {typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'N/A'}
+            </div>
+            {/* Demo button to simulate turn */}
+            <button
+              onClick={() => {
+                setNavState((prev) => ({
+                  ...prev,
+                  nextTurn: {
+                    type: 'left',
+                    distance: 150,
+                    streetName: 'Demo Street',
+                  },
+                  isNavigating: true,
+                }));
+                playAudioAlert('In 150 meters, turn left');
+              }}
+              className="px-3 py-1 bg-blue-500 text-white rounded text-xs"
+            >
+              Test Turn
+            </button>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Toggle Debug Button - Shows when debug is hidden */}
+      {!showDebug && (
+        <button
+          onClick={() => setShowDebug(true)}
+          className="fixed bottom-32 left-4 bg-gray-800 bg-opacity-75 text-white px-3 py-2 rounded-lg z-30 text-sm shadow-lg"
+        >
+          Show Debug
+        </button>
+      )}
 
       {/* Map Loading Overlay */}
       {!mapReady && (
