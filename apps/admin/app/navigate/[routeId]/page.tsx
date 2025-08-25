@@ -761,15 +761,15 @@ export default function NavigationPage() {
   }
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden">
-      {/* Map Container */}
+    <div className="fixed inset-0 overflow-hidden" style={{ width: '100vw', height: '100vh' }}>
+      {/* Map Container - Fixed positioning to ensure full viewport */}
       <div
         ref={mapContainer}
-        className="absolute inset-0 w-full h-full"
+        className="fixed inset-0"
         style={{
-          width: '100%',
-          height: '100%',
-          position: 'absolute',
+          width: '100vw',
+          height: '100vh',
+          position: 'fixed',
           top: 0,
           left: 0,
           right: 0,
@@ -779,13 +779,16 @@ export default function NavigationPage() {
       />
 
       {/* Debug GPS Info - Remove after testing */}
-      <div className="absolute top-24 left-4 bg-white bg-opacity-95 text-black p-3 rounded-lg z-30 text-sm max-w-xs shadow-lg">
+      <div className="fixed top-24 left-4 bg-white bg-opacity-95 text-black p-3 rounded-lg z-30 text-sm max-w-xs shadow-lg">
         <div className="font-bold mb-2">GPS Debug Info:</div>
         <div>Position: {navState.currentPosition ? `${navState.currentPosition[1].toFixed(5)}, ${navState.currentPosition[0].toFixed(5)}` : 'Not available'}</div>
         <div>Navigation: {navState.isNavigating ? '✅ Active' : '❌ Not started'}</div>
         <div>Off Route: {navState.offRoute ? '⚠️ Yes' : '✅ No'}</div>
         <div>Route Data: {routeData ? '✅ Loaded' : '❌ Not loaded'}</div>
         <div>Map Ready: {mapReady ? '✅ Yes' : '❌ No'}</div>
+        <div className="mt-2 pt-2 border-t">
+          <div>Screen: {typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'N/A'}</div>
+        </div>
       </div>
 
       {/* Map Loading Overlay */}
@@ -870,15 +873,16 @@ export default function NavigationPage() {
         </div>
       </div>
 
-      {/* Bottom Controls */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
-        <div className="flex gap-4">
+      {/* Bottom Controls - Positioned higher to ensure visibility */}
+      <div className="fixed left-0 right-0 p-4 z-20" style={{ bottom: '60px' }}>
+        <div className="flex gap-4 max-w-4xl mx-auto">
           {!navState.isNavigating ? (
             <button
               onClick={startNavigation}
-              className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xl font-bold py-6 px-8 rounded-lg shadow-lg transition-colors"
+              className="flex-1 bg-green-600 hover:bg-green-700 text-white text-2xl font-bold py-8 px-8 rounded-xl shadow-2xl transition-colors border-4 border-green-500"
+              style={{ minHeight: '80px' }}
             >
-              Start Navigation
+              🚗 Start Navigation
             </button>
           ) : (
             <>
