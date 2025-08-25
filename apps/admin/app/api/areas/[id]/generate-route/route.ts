@@ -75,28 +75,34 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
       features,
     };
 
-    // Call Python worker service to generate route
-    const workerUrl = process.env.WORKER_SERVICE_URL || 'http://localhost:8000';
-    const workerResponse = await fetch(`${workerUrl}/api/generate-route`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        streets_geojson: streetsGeoJSON,
-        start_point: startPoint,
-        coverage_mode: coverageMode,
-        chunk_duration: chunkDuration,
-        area_id: id,
-        area_name: areaResult[0].name,
-      }),
-    });
+    // Try to call Python worker service, fall back to mock data if unavailable
+    let routeData;
+    try {
+      const workerUrl = process.env.WORKER_SERVICE_URL || 'http://localhost:8000';
+      const workerResponse = await fetch(`${workerUrl}/api/generate-route`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          streets_geojson: streetsGeoJSON,
+          start_point: startPoint,
+          coverage_mode: coverageMode,
+          chunk_duration: chunkDuration,
+          area_id: id,
+          area_name: areaResult[0].name,
+        }),
+      });
 
-    if (!workerResponse.ok) {
-      const error = await workerResponse.text();
-      console.error('Worker service error:', error);
+      if (!workerResponse.ok) {
+        throw new Error(`Worker returned ${workerResponse.status}`);
+      }
 
-      // For now, return mock data so we can continue development
+      routeData = await workerResponse.json();
+    } catch (workerError) {
+      console.log('Worker service not available, using mock data:', workerError);
+
+      // Return mock data so we can continue development
       // TODO: Remove mock data when worker is fully integrated
       return NextResponse.json({
         success: true,
@@ -104,7 +110,13 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
         route: {
           geometry: {
             type: 'LineString',
-            coordinates: features.flatMap((f) => f.geometry.coordinates),
+            coordinates: features.flatMap((f) => {
+              // Ensure we have valid coordinates
+              if (f.geometry && f.geometry.coordinates) {
+                return f.geometry.coordinates;
+              }
+              return [];
+            }),
           },
           gaps: detectGaps(features),
           statistics: {
@@ -115,8 +127,6 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
         },
       });
     }
-
-    const routeData = await workerResponse.json();
 
     // Save route to database
     const routeResult = await sql`
