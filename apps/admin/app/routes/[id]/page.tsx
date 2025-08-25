@@ -136,9 +136,9 @@ export default function RouteDetailsPage() {
         </div>
       </div>
 
-      {/* Navigation Button - Prominent for tablets */}
-      {route.status === 'completed' && (
-        <div className="mb-6 lg:hidden">
+      {/* Navigation Button - Prominent for tablets and mobile */}
+      {(route.status === 'completed' || route.metadata?.route) && (
+        <div className="mb-6 xl:hidden">
           <Link
             href={`/navigate/${route.id}`}
             className="block w-full px-6 py-4 bg-[#00B140] text-white text-center rounded-lg hover:bg-[#00A038] transition-colors font-bold text-xl shadow-lg"
@@ -231,11 +231,11 @@ export default function RouteDetailsPage() {
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold mb-4 text-[#4C4FA3]">Actions</h2>
             <div className="space-y-3">
-              {route.status === 'completed' && (
+              {(route.status === 'completed' || route.metadata?.route) && (
                 <>
                   <Link
                     href={`/navigate/${route.id}`}
-                    className="hidden lg:block w-full px-4 py-3 bg-[#00B140] text-white text-center rounded-lg hover:bg-[#00A038] transition-colors font-semibold text-lg"
+                    className="hidden xl:block w-full px-4 py-3 bg-[#00B140] text-white text-center rounded-lg hover:bg-[#00A038] transition-colors font-semibold text-lg"
                   >
                     🚗 Start Navigation
                   </Link>

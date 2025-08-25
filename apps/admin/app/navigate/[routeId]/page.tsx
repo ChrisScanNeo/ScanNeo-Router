@@ -257,6 +257,22 @@ export default function NavigationPage() {
                 ...prev,
                 currentPosition: newPosition,
               }));
+              
+              // Update user marker position
+              if (userMarker.current) {
+                userMarker.current.setLngLat(newPosition);
+                console.log('📌 Initial user marker position set');
+              }
+              
+              // Center map on user location
+              if (map.current) {
+                map.current.flyTo({
+                  center: newPosition,
+                  zoom: 16,
+                  duration: 2000,
+                });
+                console.log('🗺️ Map centered on user location');
+              }
             },
             (error) => {
               console.warn('⚠️ Initial GPS permission denied or error:', error.message);
