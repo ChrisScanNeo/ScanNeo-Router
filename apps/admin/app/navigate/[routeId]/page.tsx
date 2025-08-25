@@ -30,6 +30,11 @@ interface NavigationState {
   offRouteTimer: number;
   coveredSegments: Set<number>;
   currentSegmentIndex: number;
+  nextTurn: {
+    type: 'left' | 'right' | 'straight' | 'u-turn' | 'arrive';
+    distance: number;
+    streetName?: string;
+  } | null;
 }
 
 export default function NavigationPage() {
@@ -59,6 +64,7 @@ export default function NavigationPage() {
     offRouteTimer: 0,
     coveredSegments: new Set(),
     currentSegmentIndex: 0,
+    nextTurn: null,
   });
 
   const [mapReady, setMapReady] = useState(false);
@@ -521,8 +527,36 @@ export default function NavigationPage() {
         console.log('🟢 ON ROUTE');
         setNavState((prev) => ({ ...prev, offRoute: false, offRouteTimer: 0 }));
 
-        // Mark segment as covered
+        // Mark segment as covered and calculate next turn
         if (nearestSegmentIndex >= 0) {
+          // Calculate next turn info
+          let nextTurnInfo = null;
+          if (nearestSegmentIndex < coords.length - 2) {
+            const currentPoint = coords[nearestSegmentIndex] as [number, number];
+            const nextPoint = coords[nearestSegmentIndex + 1] as [number, number];
+            const futurePoint = coords[nearestSegmentIndex + 2] as [number, number];
+            
+            const currentBearing = calculateBearing(currentPoint, nextPoint);
+            const nextBearing = calculateBearing(nextPoint, futurePoint);
+            const turnType = getTurnType(currentBearing, nextBearing);
+            const distanceToTurn = calculateDistance(position, nextPoint);
+            
+            nextTurnInfo = {
+              type: turnType as 'left' | 'right' | 'straight' | 'u-turn' | 'arrive',
+              distance: distanceToTurn,
+              streetName: undefined
+            };
+          } else if (nearestSegmentIndex >= coords.length - 2) {
+            // Near the end of route
+            const lastPoint = coords[coords.length - 1] as [number, number];
+            const distanceToEnd = calculateDistance(position, lastPoint);
+            nextTurnInfo = {
+              type: 'arrive' as const,
+              distance: distanceToEnd,
+              streetName: 'Destination'
+            };
+          }
+
           setNavState((prev) => {
             const newCovered = new Set(prev.coveredSegments);
             const wasNew = !newCovered.has(nearestSegmentIndex);
@@ -536,6 +570,7 @@ export default function NavigationPage() {
               ...prev,
               coveredSegments: newCovered,
               currentSegmentIndex: nearestSegmentIndex,
+              nextTurn: nextTurnInfo,
             };
           });
         }
@@ -543,6 +578,43 @@ export default function NavigationPage() {
     },
     [routeData]
   );
+
+  // Navigation calculation functions
+  const calculateBearing = (start: [number, number], end: [number, number]): number => {
+    const dLon = (end[0] - start[0]) * Math.PI / 180;
+    const lat1 = start[1] * Math.PI / 180;
+    const lat2 = end[1] * Math.PI / 180;
+    const y = Math.sin(dLon) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    const bearing = Math.atan2(y, x) * 180 / Math.PI;
+    return (bearing + 360) % 360;
+  };
+
+  const getTurnType = (currentBearing: number, nextBearing: number): 'left' | 'right' | 'straight' | 'u-turn' => {
+    let angle = nextBearing - currentBearing;
+    if (angle > 180) angle -= 360;
+    if (angle < -180) angle += 360;
+    
+    if (Math.abs(angle) < 30) return 'straight';
+    if (Math.abs(angle) > 150) return 'u-turn';
+    if (angle < 0) return 'left';
+    return 'right';
+  };
+
+  const calculateDistance = (point1: [number, number], point2: [number, number]): number => {
+    const R = 6371000; // Earth radius in meters
+    const φ1 = point1[1] * Math.PI / 180;
+    const φ2 = point2[1] * Math.PI / 180;
+    const Δφ = (point2[1] - point1[1]) * Math.PI / 180;
+    const Δλ = (point2[0] - point1[0]) * Math.PI / 180;
+    
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    
+    return R * c;
+  };
 
   // Distance calculation functions
   const distanceToLineSegment = (
@@ -664,9 +736,25 @@ export default function NavigationPage() {
     setNavState((prev) => ({ ...prev, isNavigating: false }));
   }, []);
 
-  // Handle off-route timer
+  // Audio alerts helper
+  const playAudioAlert = (message: string) => {
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(message);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  // Handle off-route timer with audio alerts
   useEffect(() => {
     if (navState.offRoute && navState.isNavigating) {
+      // Play alert when first going off route
+      if (navState.offRouteTimer === 0) {
+        playAudioAlert('Off route. Please return to the highlighted path.');
+      }
+
       const timer = setTimeout(() => {
         setNavState((prev) => ({
           ...prev,
@@ -674,7 +762,8 @@ export default function NavigationPage() {
         }));
 
         if (navState.offRouteTimer >= 10) {
-          // Trigger reroute
+          // Trigger reroute with audio
+          playAudioAlert('Recalculating route.');
           handleReroute();
         }
       }, 1000);
@@ -682,6 +771,29 @@ export default function NavigationPage() {
       return () => clearTimeout(timer);
     }
   }, [navState.offRoute, navState.offRouteTimer, navState.isNavigating]);
+
+  // Turn announcements
+  useEffect(() => {
+    if (navState.nextTurn && navState.isNavigating && !navState.offRoute) {
+      const distance = navState.nextTurn.distance;
+      
+      // Announce at specific distances (with some tolerance)
+      if (distance <= 50 && distance > 40) {
+        const turnText = navState.nextTurn.type === 'left' ? 'Turn left' 
+                       : navState.nextTurn.type === 'right' ? 'Turn right'
+                       : navState.nextTurn.type === 'u-turn' ? 'Make a U-turn'
+                       : navState.nextTurn.type === 'arrive' ? 'Arriving at destination'
+                       : 'Continue straight';
+        playAudioAlert(`${turnText} now`);
+      } else if (distance <= 200 && distance > 190) {
+        const turnText = navState.nextTurn.type === 'left' ? 'turn left' 
+                       : navState.nextTurn.type === 'right' ? 'turn right'
+                       : navState.nextTurn.type === 'u-turn' ? 'make a U-turn'
+                       : 'continue';
+        playAudioAlert(`In 200 meters, ${turnText}`);
+      }
+    }
+  }, [navState.nextTurn?.distance, navState.isNavigating, navState.offRoute]);
 
   const handleReroute = async () => {
     if (!navState.currentPosition || !routeData) return;
@@ -825,16 +937,49 @@ export default function NavigationPage() {
         {/* Turn-by-Turn Instructions */}
         {navState.isNavigating && (
           <div className="bg-blue-600/90 backdrop-blur rounded-lg p-4 mb-4 pointer-events-auto">
-            <div className="text-white text-center">
-              <div className="text-2xl font-bold mb-2">🧭</div>
-              <div className="text-lg font-semibold">
-                {navState.offRoute ? 'Return to Route' : 'Follow Coverage Route'}
-              </div>
-              <div className="text-sm opacity-90">
-                {navState.offRoute
-                  ? 'Navigate back to the blue route line'
-                  : `Segment ${navState.currentSegmentIndex + 1} of ${routeData?.geometry.coordinates.length || 0}`}
-              </div>
+            <div className="text-white">
+              {navState.nextTurn && !navState.offRoute ? (
+                <div className="flex items-center gap-4">
+                  {/* Turn Arrow */}
+                  <div className="text-6xl">
+                    {navState.nextTurn.type === 'left' && '⬅️'}
+                    {navState.nextTurn.type === 'right' && '➡️'}
+                    {navState.nextTurn.type === 'straight' && '⬆️'}
+                    {navState.nextTurn.type === 'u-turn' && '↩️'}
+                    {navState.nextTurn.type === 'arrive' && '🏁'}
+                  </div>
+                  {/* Turn Info */}
+                  <div className="flex-1">
+                    <div className="text-2xl font-bold">
+                      {navState.nextTurn.type === 'left' && 'Turn Left'}
+                      {navState.nextTurn.type === 'right' && 'Turn Right'}
+                      {navState.nextTurn.type === 'straight' && 'Continue Straight'}
+                      {navState.nextTurn.type === 'u-turn' && 'Make U-Turn'}
+                      {navState.nextTurn.type === 'arrive' && 'Arriving at End'}
+                    </div>
+                    <div className="text-xl mt-1">
+                      {navState.nextTurn.distance < 1000 
+                        ? `${Math.round(navState.nextTurn.distance)} meters`
+                        : `${(navState.nextTurn.distance / 1000).toFixed(1)} km`}
+                    </div>
+                    <div className="text-sm opacity-75 mt-1">
+                      Segment {navState.currentSegmentIndex + 1} of {routeData?.geometry.coordinates.length || 0}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center">
+                  <div className="text-2xl font-bold mb-2">🧭</div>
+                  <div className="text-lg font-semibold">
+                    {navState.offRoute ? '⚠️ Return to Route' : 'Follow Coverage Route'}
+                  </div>
+                  <div className="text-sm opacity-90">
+                    {navState.offRoute
+                      ? 'Navigate back to the blue route line'
+                      : `Segment ${navState.currentSegmentIndex + 1} of ${routeData?.geometry.coordinates.length || 0}`}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
