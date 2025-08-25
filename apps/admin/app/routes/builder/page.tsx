@@ -92,9 +92,13 @@ function RouteBuilderContent() {
       try {
         const response = await fetch('/api/areas');
         const data = await response.json();
-        if (data.success && data.areas) {
+
+        // Handle both array format and object with success/areas format
+        const areasData = Array.isArray(data) ? data : data.areas || [];
+
+        if (areasData.length > 0) {
           setAreas(
-            data.areas.map(
+            areasData.map(
               (a: {
                 id: string;
                 name: string;
