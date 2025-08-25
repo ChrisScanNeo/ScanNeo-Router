@@ -12,6 +12,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
       startPoint,
       coverageMode = true, // Default to coverage mode for U-turn support
       chunkDuration = 3600, // Default 1 hour chunks
+      zoneId = null, // Optional zone ID to generate route for specific zone
     } = body;
 
     // Get database connection
@@ -33,19 +34,53 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Area not found' }, { status: 404 });
     }
 
-    // Get streets for this area
-    const streetsResult = await sql`
-      SELECT 
-        id,
-        way_id,
-        oneway,
-        tags,
-        ST_AsGeoJSON(geom)::json as geometry,
-        ST_Length(geom::geography) as length_m
-      FROM edges
-      WHERE area_id = ${id}
-      ORDER BY id
-    `;
+    // Get streets for this area (or zone if specified)
+    let streetsResult;
+
+    if (zoneId) {
+      // Get zone geometry first
+      const zoneCheck = await sql`
+        SELECT id FROM zones WHERE id = ${zoneId} AND parent_area_id = ${id}
+      `;
+
+      if (zoneCheck.length === 0) {
+        return NextResponse.json(
+          { error: 'Zone not found or does not belong to this area' },
+          { status: 404 }
+        );
+      }
+
+      // Get streets that intersect with the zone
+      streetsResult = await sql`
+        SELECT 
+          e.id,
+          e.way_id,
+          e.oneway,
+          e.tags,
+          ST_AsGeoJSON(e.geom)::json as geometry,
+          ST_Length(e.geom::geography) as length_m
+        FROM edges e
+        JOIN zones z ON ST_Intersects(e.geom, z.geom)
+        WHERE e.area_id = ${id} AND z.id = ${zoneId}
+        ORDER BY e.id
+      `;
+
+      console.log(`Generating route for zone ${zoneId} with ${streetsResult.length} streets`);
+    } else {
+      // Get all streets for the area
+      streetsResult = await sql`
+        SELECT 
+          id,
+          way_id,
+          oneway,
+          tags,
+          ST_AsGeoJSON(geom)::json as geometry,
+          ST_Length(geom::geography) as length_m
+        FROM edges
+        WHERE area_id = ${id}
+        ORDER BY id
+      `;
+    }
 
     if (streetsResult.length === 0) {
       return NextResponse.json(
@@ -111,6 +146,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
       INSERT INTO coverage_routes (
         area_id,
         area_name,
+        zone_id,
         profile,
         status,
         progress,
@@ -121,6 +157,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
       ) VALUES (
         ${id},
         ${areaResult[0].name},
+        ${zoneId},
         'driving-car',
         'completed',
         100,
@@ -128,6 +165,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
           chunkDuration,
           coverageMode,
           startPoint,
+          zoneId,
         })}::jsonb,
         ${JSON.stringify({
           route: routeData,
@@ -138,6 +176,15 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
       )
       RETURNING id
     `;
+
+    // If zone was specified, update zone status
+    if (zoneId) {
+      await sql`
+        UPDATE zones 
+        SET status = 'in_progress', updated_at = NOW()
+        WHERE id = ${zoneId}
+      `;
+    }
 
     return NextResponse.json({
       success: true,

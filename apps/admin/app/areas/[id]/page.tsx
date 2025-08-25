@@ -227,6 +227,19 @@ export default function AreaDetailPage({ params }: { params: Promise<{ id: strin
                   <GeometryStats geojson={area.geojson} />
                 </div>
               </div>
+
+              {/* Zone Management Button */}
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <Link
+                  href={`/areas/${area.id}/zones`}
+                  className="block w-full px-4 py-3 bg-[#4C4FA3] text-white text-center rounded-lg hover:bg-[#3A3D80] transition-colors font-semibold"
+                >
+                  📍 Manage Zones
+                </Link>
+                <p className="text-xs text-gray-500 text-center mt-2">
+                  Divide area into manageable hour-long route segments
+                </p>
+              </div>
             </div>
           </div>
 

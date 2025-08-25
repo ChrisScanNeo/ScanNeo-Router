@@ -55,9 +55,14 @@ function RouteBuilderContent() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
 
+  // Check for area and zone parameters in URL
+  const urlAreaId = searchParams.get('area');
+  const urlZoneId = searchParams.get('zone');
+
   const [currentStep, setCurrentStep] = useState<Step>('select-area');
   const [areas, setAreas] = useState<Area[]>([]);
   const [selectedArea, setSelectedArea] = useState<Area | null>(null);
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(urlZoneId);
   const [streetData, setStreetData] = useState<StreetData | null>(null);
   const [startPoint, setStartPoint] = useState<[number, number] | null>(null);
   // Route segments will be displayed on the map once generated
@@ -155,15 +160,14 @@ function RouteBuilderContent() {
 
   // Check for area ID in URL
   useEffect(() => {
-    const areaId = searchParams.get('area');
-    if (areaId && areas.length > 0) {
-      const area = areas.find((a) => a.id === areaId);
+    if (urlAreaId && areas.length > 0) {
+      const area = areas.find((a) => a.id === urlAreaId);
       if (area) {
         setSelectedArea(area);
         setCurrentStep('extract-streets');
       }
     }
-  }, [searchParams, areas]);
+  }, [urlAreaId, areas]);
 
   // Update map when area is selected
   useEffect(() => {
@@ -434,6 +438,7 @@ function RouteBuilderContent() {
           startPoint: startPoint,
           coverageMode: true, // Enable U-turn support
           chunkDuration: 3600,
+          zoneId: selectedZoneId, // Include zone ID if present
         }),
       });
 
@@ -783,15 +788,21 @@ function RouteBuilderContent() {
                 <p className="text-sm">
                   Start Point: <strong>Selected ✓</strong>
                 </p>
+                {selectedZoneId && (
+                  <p className="text-sm mt-2">
+                    Zone: <strong>Selected (ID: {selectedZoneId})</strong>
+                  </p>
+                )}
               </div>
               <button
                 onClick={generateRoute}
                 className="w-full py-2 px-4 bg-green-600 text-white rounded-md hover:bg-green-700"
               >
-                Generate Coverage Route
+                Generate Coverage Route {selectedZoneId ? 'for Zone' : ''}
               </button>
               <p className="text-sm text-gray-600">
-                This will calculate the optimal route covering all streets
+                This will calculate the optimal route covering {selectedZoneId ? 'zone' : 'all'}{' '}
+                streets
               </p>
             </div>
           )}
