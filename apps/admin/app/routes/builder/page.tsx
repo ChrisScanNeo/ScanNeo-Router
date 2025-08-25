@@ -61,11 +61,10 @@ function RouteBuilderContent() {
   const [streetData, setStreetData] = useState<StreetData | null>(null);
   const [startPoint, setStartPoint] = useState<[number, number] | null>(null);
   // Route segments will be displayed on the map once generated
-  const [routeSegments, setRouteSegments] = useState<any[]>([]);
+  const [routeSegments, setRouteSegments] = useState<unknown[]>([]);
   const [gaps, setGaps] = useState<Gap[]>([]);
   const [currentGapIndex, setCurrentGapIndex] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
 
   // Initialize map
@@ -405,7 +404,7 @@ function RouteBuilderContent() {
       return;
     }
 
-    setIsLoading(true);
+    setIsProcessing(true);
     try {
       // Call the new generate-route endpoint
       const response = await fetch(`/api/areas/${selectedArea.id}/generate-route`, {
@@ -524,7 +523,7 @@ function RouteBuilderContent() {
       console.error('Route generation error:', error);
       toast.error('Failed to generate route');
     } finally {
-      setIsLoading(false);
+      setIsProcessing(false);
     }
   };
 
