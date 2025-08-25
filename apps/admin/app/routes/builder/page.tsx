@@ -58,6 +58,7 @@ function RouteBuilderContent() {
   const [gaps, setGaps] = useState<Gap[]>([]);
   const [currentGapIndex, setCurrentGapIndex] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
   // Initialize map
   useEffect(() => {
@@ -71,6 +72,7 @@ function RouteBuilderContent() {
     });
 
     map.current.on('load', () => {
+      setMapLoaded(true);
       // Add navigation controls
       if (map.current) {
         map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
@@ -133,7 +135,7 @@ function RouteBuilderContent() {
 
   // Update map when area is selected
   useEffect(() => {
-    if (!map.current || !selectedArea) return;
+    if (!map.current || !selectedArea || !mapLoaded) return;
 
     // Remove existing layers
     if (map.current.getSource('area-boundary')) {
@@ -206,7 +208,7 @@ function RouteBuilderContent() {
     }
 
     map.current.fitBounds(bounds, { padding: 50 });
-  }, [selectedArea]);
+  }, [selectedArea, mapLoaded]);
 
   // Display route segments on map (when generated)
   useEffect(() => {
@@ -218,52 +220,53 @@ function RouteBuilderContent() {
 
   // Display streets on map
   useEffect(() => {
-    if (!map.current || !streetData) return;
+    if (!map.current || !streetData || !mapLoaded) return;
 
-    // Remove existing streets layer
-    if (map.current.getSource('streets')) {
-      map.current.removeLayer('streets-line');
-      map.current.removeLayer('streets-arrows');
-      map.current.removeSource('streets');
+    console.log('Displaying streets on map:', streetData.streets);
+
+    try {
+      // Remove existing streets layers if they exist
+      if (map.current.getLayer('streets-arrows')) {
+        map.current.removeLayer('streets-arrows');
+      }
+      if (map.current.getLayer('streets-line')) {
+        map.current.removeLayer('streets-line');
+      }
+      if (map.current.getSource('streets')) {
+        map.current.removeSource('streets');
+      }
+
+      // Add streets source
+      map.current.addSource('streets', {
+        type: 'geojson',
+        data: streetData.streets,
+      });
+
+      // Add streets line layer
+      map.current.addLayer({
+        id: 'streets-line',
+        type: 'line',
+        source: 'streets',
+        paint: {
+          'line-color': [
+            'case',
+            ['get', 'oneway'],
+            '#ef4444', // Red for one-way
+            '#10b981', // Green for two-way
+          ],
+          'line-width': 3,
+          'line-opacity': 0.8,
+        },
+      });
+
+      // Add arrows for one-way streets (skip for now as icon might not be available)
+      // We'll use line direction indicators instead
+
+      console.log('Streets layer added successfully');
+    } catch (error) {
+      console.error('Error adding streets to map:', error);
     }
-
-    // Add streets
-    map.current.addSource('streets', {
-      type: 'geojson',
-      data: streetData.streets,
-    });
-
-    map.current.addLayer({
-      id: 'streets-line',
-      type: 'line',
-      source: 'streets',
-      paint: {
-        'line-color': [
-          'case',
-          ['get', 'oneway'],
-          '#ef4444', // Red for one-way
-          '#10b981', // Green for two-way
-        ],
-        'line-width': 2,
-        'line-opacity': 0.8,
-      },
-    });
-
-    // Add arrows for one-way streets
-    map.current.addLayer({
-      id: 'streets-arrows',
-      type: 'symbol',
-      source: 'streets',
-      filter: ['==', ['get', 'oneway'], true],
-      layout: {
-        'symbol-placement': 'line',
-        'symbol-spacing': 100,
-        'icon-image': '▶',
-        'icon-size': 0.5,
-        'icon-rotate': 90,
-      },
-    });
-  }, [streetData]);
+  }, [streetData, mapLoaded]);
 
   const handleAreaSelect = (areaId: string) => {
     const area = areas.find((a) => a.id === areaId);
