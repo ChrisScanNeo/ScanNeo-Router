@@ -21,11 +21,12 @@ GEOD = Geod(ellps="WGS84")
 class RouteCalculator:
     """Calculates optimal coverage routes using proper CPP with directed graphs"""
     
-    def __init__(self, ors_client: ORSClient = None, cache=None):
+    def __init__(self, ors_client: ORSClient = None, cache=None, coverage_mode: bool = True):
         self.graph_builder = GraphBuilder()
         self.ors_client = ors_client or ORSClient(cache=cache)
-        self.route_connector = RouteConnector(self.ors_client)
+        self.route_connector = RouteConnector(self.ors_client, coverage_mode=coverage_mode)
         self.max_gap = settings.max_gap_meters
+        self.coverage_mode = coverage_mode
     
     async def calculate_route(
         self,

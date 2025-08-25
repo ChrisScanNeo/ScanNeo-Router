@@ -47,9 +47,10 @@ def _align(u: Tuple[float, float], v: Tuple[float, float], coords: List[List[flo
 class RouteConnector:
     """Connects disconnected components in street graph"""
     
-    def __init__(self, ors_client: ORSClient):
+    def __init__(self, ors_client: ORSClient, coverage_mode: bool = True):
         self.ors_client = ors_client
         self.max_gap = settings.max_gap_meters
+        self.coverage_mode = coverage_mode  # True = prioritize coverage with U-turns, False = standard navigation
     
     async def connect_components(
         self,
@@ -219,13 +220,36 @@ class RouteConnector:
         candidates.sort(key=lambda x: x[2])
         candidates = candidates[:max_candidates]
         
-        # Stage 3: Get actual routes for best candidates
+        # Stage 3: Handle based on coverage mode
         best_route = None
         best_distance = float('inf')
         best_source = None
         best_target = None
         
         for node1, node2, straight_dist in candidates:
+            # In coverage mode, for small gaps just connect directly (allowing U-turns)
+            if self.coverage_mode and straight_dist < 50:  # Within 50m
+                logger.info(f"Coverage mode: Direct connection for {straight_dist:.1f}m gap")
+                # Create direct path (allows U-turn if on same street)
+                best_route = [list(node1), list(node2)]
+                best_distance = straight_dist
+                best_source = node1
+                best_target = node2
+                break
+            
+            # Check if nodes might be on the same street (very close)
+            if self.coverage_mode and straight_dist < 100:
+                # Try to create a U-turn path if they're likely on the same street
+                u_turn_path = self._create_u_turn_path(comp1, comp2, node1, node2)
+                if u_turn_path:
+                    logger.info(f"Coverage mode: U-turn path found for {straight_dist:.1f}m gap")
+                    best_route = u_turn_path
+                    best_distance = self._calculate_path_distance(u_turn_path)
+                    best_source = node1
+                    best_target = node2
+                    break
+            
+            # Otherwise use routing API
             try:
                 # Get route from ORS
                 coords, distance = await self.ors_client.get_route(node1, node2)
@@ -243,6 +267,13 @@ class RouteConnector:
                         
             except Exception as e:
                 logger.warning(f"Failed to get route between {node1} and {node2}: {e}")
+                # In coverage mode, fall back to direct connection for failed routing
+                if self.coverage_mode:
+                    best_route = [list(node1), list(node2)]
+                    best_distance = straight_dist
+                    best_source = node1
+                    best_target = node2
+                    logger.info(f"Coverage mode: Using direct fallback for failed routing")
         
         if best_route:
             logger.info(f"Found best connection: {best_source} -> {best_target}, distance: {best_distance:.1f}m")
@@ -250,6 +281,42 @@ class RouteConnector:
         
         logger.warning("No route found between components")
         return None
+    
+    def _create_u_turn_path(
+        self,
+        comp1: nx.DiGraph,
+        comp2: nx.DiGraph, 
+        node1: Tuple[float, float],
+        node2: Tuple[float, float]
+    ) -> Optional[List[List[float]]]:
+        """Create a U-turn path if nodes are on the same street or very close"""
+        
+        # Check if both nodes have edges in their components that might connect
+        # This is a simplified check - in reality would need street name matching
+        
+        # Find if there's a common neighbor (intersection) nearby
+        neighbors1 = set(comp1.neighbors(node1)) | set(comp1.predecessors(node1))
+        neighbors2 = set(comp2.neighbors(node2)) | set(comp2.predecessors(node2))
+        
+        # Look for nearby common points
+        for n1 in neighbors1:
+            for n2 in neighbors2:
+                dist = self._haversine(n1, n2)
+                if dist < 20:  # Very close, likely same intersection
+                    # Create path: node1 -> n1 -> n2 -> node2
+                    return [list(node1), list(n1), list(n2), list(node2)]
+        
+        return None
+    
+    def _calculate_path_distance(self, coords: List[List[float]]) -> float:
+        """Calculate total distance along a path"""
+        total = 0
+        for i in range(len(coords) - 1):
+            total += self._haversine(
+                (coords[i][0], coords[i][1]),
+                (coords[i+1][0], coords[i+1][1])
+            )
+        return total
     
     def _get_component_centroid(self, component: nx.DiGraph) -> Tuple[float, float]:
         """Get centroid of component nodes"""

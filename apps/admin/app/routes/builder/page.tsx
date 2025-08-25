@@ -45,8 +45,9 @@ interface Gap {
   startPoint: [number, number];
   endPoint: [number, number];
   distance: number;
+  type?: 'u-turn' | 'connection';
   resolved: boolean;
-  resolution?: 'auto' | 'manual' | 'skip';
+  resolution?: 'auto' | 'manual' | 'skip' | 'u-turn';
 }
 
 function RouteBuilderContent() {
@@ -60,10 +61,11 @@ function RouteBuilderContent() {
   const [streetData, setStreetData] = useState<StreetData | null>(null);
   const [startPoint, setStartPoint] = useState<[number, number] | null>(null);
   // Route segments will be displayed on the map once generated
-  const [routeSegments] = useState<GeoJSON.Feature[]>([]);
+  const [routeSegments, setRouteSegments] = useState<any[]>([]);
   const [gaps, setGaps] = useState<Gap[]>([]);
   const [currentGapIndex, setCurrentGapIndex] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
 
   // Initialize map
@@ -397,34 +399,136 @@ function RouteBuilderContent() {
     }
   };
 
-  const generateRoute = () => {
-    // Simulate route generation with gaps
-    const mockGaps: Gap[] = [
-      {
-        id: 1,
-        startPoint: [-0.0875, 51.5085],
-        endPoint: [-0.0865, 51.5095],
-        distance: 150,
-        resolved: false,
-      },
-      {
-        id: 2,
-        startPoint: [-0.0855, 51.5105],
-        endPoint: [-0.0845, 51.5115],
-        distance: 200,
-        resolved: false,
-      },
-    ];
+  const generateRoute = async () => {
+    if (!selectedArea || !startPoint) {
+      toast.error('Please select an area and starting point first');
+      return;
+    }
 
-    // Route segments will be populated with actual route generation
-    // For now using mock data - routeSegments state will be used when rendering on map
+    setIsLoading(true);
+    try {
+      // Call the new generate-route endpoint
+      const response = await fetch(`/api/areas/${selectedArea.id}/generate-route`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          startPoint: startPoint,
+          coverageMode: true, // Enable U-turn support
+          chunkDuration: 3600,
+        }),
+      });
 
-    setGaps(mockGaps);
-    toast(`Found ${mockGaps.length} gaps in route`, { icon: '⚠️' });
-    setCurrentStep('resolve-gaps');
+      if (!response.ok) {
+        throw new Error('Failed to generate route');
+      }
+
+      const data = await response.json();
+
+      // Extract gaps from the route data
+      const routeGaps = data.route.gaps || [];
+
+      // Display the route on the map if we have geometry
+      if (data.route.geometry && map.current) {
+        // Add route layer to map
+        if (map.current.getSource('route')) {
+          map.current.removeLayer('route-line');
+          map.current.removeSource('route');
+        }
+
+        map.current.addSource('route', {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            properties: {},
+            geometry: data.route.geometry,
+          },
+        });
+
+        map.current.addLayer({
+          id: 'route-line',
+          type: 'line',
+          source: 'route',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
+          },
+          paint: {
+            'line-color': '#0066ff',
+            'line-width': 3,
+            'line-opacity': 0.7,
+          },
+        });
+      }
+
+      // Process gaps with type information
+      const processedGaps: Gap[] = routeGaps.map((gap: Gap, index: number) => ({
+        id: gap.id || index + 1,
+        startPoint: gap.startPoint,
+        endPoint: gap.endPoint,
+        distance: gap.distance,
+        type: gap.type || 'connection', // 'u-turn' or 'connection'
+        resolved: false,
+      }));
+
+      setGaps(processedGaps);
+
+      if (processedGaps.length > 0) {
+        toast(`Found ${processedGaps.length} gaps in route`, { icon: '⚠️' });
+
+        // Show gap markers on map
+        if (map.current) {
+          processedGaps.forEach((gap, idx) => {
+            // Add gap visualization
+            const gapSource = `gap-${idx}`;
+            if (map.current!.getSource(gapSource)) {
+              map.current!.removeLayer(`${gapSource}-line`);
+              map.current!.removeSource(gapSource);
+            }
+
+            map.current!.addSource(gapSource, {
+              type: 'geojson',
+              data: {
+                type: 'Feature',
+                properties: {},
+                geometry: {
+                  type: 'LineString',
+                  coordinates: [gap.startPoint, gap.endPoint],
+                },
+              },
+            });
+
+            map.current!.addLayer({
+              id: `${gapSource}-line`,
+              type: 'line',
+              source: gapSource,
+              paint: {
+                'line-color': gap.type === 'u-turn' ? '#ff9900' : '#ffff00',
+                'line-width': 4,
+                'line-dasharray': [2, 2],
+              },
+            });
+          });
+        }
+
+        setCurrentStep('resolve-gaps');
+      } else {
+        toast.success('Route generated with no gaps!');
+        setCurrentStep('finalize');
+      }
+
+      // Store route data for later use
+      setRouteSegments([data.route]);
+    } catch (error) {
+      console.error('Route generation error:', error);
+      toast.error('Failed to generate route');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const resolveGap = (resolution: 'auto' | 'manual' | 'skip') => {
+  const resolveGap = (resolution: 'auto' | 'manual' | 'skip' | 'u-turn') => {
     const updatedGaps = [...gaps];
     updatedGaps[currentGapIndex] = {
       ...updatedGaps[currentGapIndex],
@@ -432,6 +536,16 @@ function RouteBuilderContent() {
       resolution,
     };
     setGaps(updatedGaps);
+
+    // Visual feedback for resolution type
+    const resolutionMessage = {
+      auto: 'Gap connected via routing',
+      manual: 'Gap marked for manual connection',
+      skip: 'Gap skipped - separate coverage needed',
+      'u-turn': 'Gap resolved with U-turn',
+    };
+
+    toast.success(resolutionMessage[resolution] || 'Gap resolved');
 
     if (currentGapIndex < gaps.length - 1) {
       setCurrentGapIndex(currentGapIndex + 1);
@@ -662,30 +776,58 @@ function RouteBuilderContent() {
                 <p className="text-sm">
                   Distance: <strong>{gaps[currentGapIndex].distance}m</strong>
                 </p>
+                {gaps[currentGapIndex].type && (
+                  <p className="text-sm mt-1">
+                    Type:{' '}
+                    <span className="font-semibold">
+                      {gaps[currentGapIndex].type === 'u-turn'
+                        ? '🔄 U-turn possible'
+                        : '🔗 Connection needed'}
+                    </span>
+                  </p>
+                )}
                 <p className="text-sm mt-2">
-                  Gap between segments detected. Choose how to connect:
+                  {gaps[currentGapIndex].type === 'u-turn'
+                    ? 'This gap can be closed with a U-turn on the same street.'
+                    : 'Gap between segments detected. Choose how to connect:'}
                 </p>
               </div>
               <div className="space-y-2">
+                {gaps[currentGapIndex].type === 'u-turn' && (
+                  <button
+                    onClick={() => resolveGap('u-turn')}
+                    className="w-full py-2 px-4 bg-orange-600 text-white rounded-md hover:bg-orange-700"
+                  >
+                    🔄 Use U-turn (Recommended)
+                  </button>
+                )}
                 <button
                   onClick={() => resolveGap('auto')}
                   className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 >
-                  Auto-connect via Routing
+                  🚗 Auto-connect via Routing
                 </button>
                 <button
                   onClick={() => resolveGap('manual')}
                   className="w-full py-2 px-4 bg-purple-600 text-white rounded-md hover:bg-purple-700"
                 >
-                  Draw Manual Connection
+                  ✏️ Draw Manual Connection
                 </button>
                 <button
                   onClick={() => resolveGap('skip')}
                   className="w-full py-2 px-4 bg-gray-600 text-white rounded-md hover:bg-gray-700"
                 >
-                  Skip This Gap
+                  ⏭️ Skip This Gap
                 </button>
               </div>
+              {gaps[currentGapIndex].distance < 50 && (
+                <div className="bg-green-50 p-3 rounded-md">
+                  <p className="text-xs text-green-700">
+                    💡 <strong>Tip:</strong> This is a small gap ({gaps[currentGapIndex].distance}
+                    m). U-turns are allowed for coverage routing to ensure all streets are visited.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -722,17 +864,40 @@ function RouteBuilderContent() {
 
         {/* Map Overlay for Gap Resolution */}
         {currentStep === 'resolve-gaps' && gaps.length > 0 && (
-          <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-4">
-            <h4 className="font-semibold mb-2">Gap Details</h4>
-            <p className="text-sm">
-              Gap {currentGapIndex + 1} of {gaps.length}
-            </p>
-            <p className="text-sm">Distance: {gaps[currentGapIndex].distance}m</p>
-            {gaps[currentGapIndex].resolved && (
-              <p className="text-sm text-green-600">
-                ✓ Resolved via {gaps[currentGapIndex].resolution}
+          <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-4 max-w-xs">
+            <h4 className="font-semibold mb-2">Gap Analysis</h4>
+            <div className="space-y-2 text-sm">
+              <p>
+                Gap {currentGapIndex + 1} of {gaps.length}
               </p>
-            )}
+              <p>
+                Distance: <strong>{gaps[currentGapIndex].distance}m</strong>
+              </p>
+              {gaps[currentGapIndex].type && (
+                <p>
+                  Type:{' '}
+                  <span
+                    className={`font-semibold ${
+                      gaps[currentGapIndex].type === 'u-turn' ? 'text-orange-600' : 'text-blue-600'
+                    }`}
+                  >
+                    {gaps[currentGapIndex].type === 'u-turn' ? '🔄 U-turn' : '🔗 Connection'}
+                  </span>
+                </p>
+              )}
+              {gaps[currentGapIndex].resolved && (
+                <p className="text-green-600">✓ Resolved via {gaps[currentGapIndex].resolution}</p>
+              )}
+              <div className="pt-2 border-t">
+                <p className="text-xs text-gray-600">
+                  {gaps[currentGapIndex].type === 'u-turn'
+                    ? 'Same street - U-turn recommended for coverage'
+                    : gaps[currentGapIndex].distance < 100
+                      ? 'Nearby streets - short connection needed'
+                      : 'Disconnected segments - routing required'}
+                </p>
+              </div>
+            </div>
           </div>
         )}
       </div>
