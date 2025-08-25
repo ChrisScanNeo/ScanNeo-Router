@@ -346,9 +346,15 @@ function RouteBuilderContent() {
 
       // Show detailed extraction results
       const extraction = data.extraction;
+      const removedMsg =
+        extraction.streets_removed > 0
+          ? `\n${extraction.streets_removed} streets removed (outside boundary)`
+          : '';
+
       toast.success(
         `Extracted ${extraction.streets_filtered} streets (${extraction.total_length_km} km)\n` +
-          `${extraction.one_way_streets} one-way, ${extraction.restricted_streets} restricted, ${extraction.dead_ends} dead-ends`,
+          `${extraction.one_way_streets} one-way, ${extraction.restricted_streets} restricted, ${extraction.dead_ends} dead-ends` +
+          removedMsg,
         { duration: 5000 }
       );
       setCurrentStep('build-graph');
@@ -364,39 +370,51 @@ function RouteBuilderContent() {
     // This will be implemented to build the network graph
     toast.success('Graph built successfully');
     setCurrentStep('select-start');
-
-    // Enable click handler for start point selection
-    if (map.current) {
-      map.current.on('click', handleMapClick);
-    }
+    toast('Click anywhere on the map to select a starting point', { icon: 'ℹ️' });
   };
 
   const handleMapClick = (e: mapboxgl.MapMouseEvent) => {
+    const point: [number, number] = [e.lngLat.lng, e.lngLat.lat];
+    setStartPoint(point);
+
+    // Add marker for start point
+    if (map.current) {
+      // Remove existing marker if any
+      const existingMarker = document.getElementById('start-marker');
+      if (existingMarker) existingMarker.remove();
+
+      new mapboxgl.Marker({ color: '#00B140' })
+        .setLngLat(point)
+        .addTo(map.current)
+        .getElement().id = 'start-marker';
+    }
+
+    toast.success('Start point selected');
+    setCurrentStep('generate-route');
+  };
+
+  // Manage click handler based on current step
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+
     if (currentStep === 'select-start') {
-      const point: [number, number] = [e.lngLat.lng, e.lngLat.lat];
-      setStartPoint(point);
+      // Add click handler and change cursor
+      map.current.on('click', handleMapClick);
+      map.current.getCanvas().style.cursor = 'crosshair';
+    } else {
+      // Remove click handler and reset cursor
+      map.current.off('click', handleMapClick);
+      map.current.getCanvas().style.cursor = '';
+    }
 
-      // Add marker for start point
-      if (map.current) {
-        // Remove existing marker if any
-        const existingMarker = document.getElementById('start-marker');
-        if (existingMarker) existingMarker.remove();
-
-        new mapboxgl.Marker({ color: '#00B140' })
-          .setLngLat(point)
-          .addTo(map.current)
-          .getElement().id = 'start-marker';
-      }
-
-      toast.success('Start point selected');
-      setCurrentStep('generate-route');
-
-      // Remove click handler
+    // Cleanup function
+    return () => {
       if (map.current) {
         map.current.off('click', handleMapClick);
+        map.current.getCanvas().style.cursor = '';
       }
-    }
-  };
+    };
+  }, [currentStep, mapLoaded]);
 
   const generateRoute = async () => {
     if (!selectedArea || !startPoint) {
@@ -733,13 +751,25 @@ function RouteBuilderContent() {
           {currentStep === 'select-start' && (
             <div className="space-y-4">
               <h3 className="font-semibold text-lg">Select Starting Point</h3>
-              <div className="bg-yellow-50 p-4 rounded-md">
-                <p className="text-sm">Click on the map to select where the route should start</p>
+              <div className="bg-blue-50 p-4 rounded-md">
+                <p className="text-sm text-blue-700">
+                  🎯 Click anywhere on the map within the blue boundary to set your starting point
+                </p>
+                <p className="text-xs text-blue-600 mt-2">
+                  The cursor will change to a crosshair (+) when ready
+                </p>
               </div>
+              {!startPoint && (
+                <div className="bg-yellow-50 p-3 rounded-md">
+                  <p className="text-sm text-yellow-700">
+                    💡 Tip: Choose a location with good access to main roads for optimal routing
+                  </p>
+                </div>
+              )}
               {startPoint && (
                 <div className="bg-green-50 p-4 rounded-md">
-                  <p className="text-sm">
-                    Selected: [{startPoint[0].toFixed(4)}, {startPoint[1].toFixed(4)}]
+                  <p className="text-sm text-green-700">
+                    ✅ Selected: [{startPoint[0].toFixed(4)}, {startPoint[1].toFixed(4)}]
                   </p>
                 </div>
               )}

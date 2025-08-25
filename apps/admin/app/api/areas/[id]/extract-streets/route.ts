@@ -141,8 +141,6 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
     await sql`DELETE FROM edges WHERE area_id = ${id}`;
 
     // Insert new edges with detailed metadata
-    let insertedCount = 0;
-    let oneWayCount = 0;
     let restrictedCount = 0;
     let deadEndCount = 0;
 
@@ -151,8 +149,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
       const coords = geom.coordinates;
       const linestring = `LINESTRING(${coords.map((c: GeoJSON.Position) => `${c[0]} ${c[1]}`).join(',')})`;
 
-      // Track statistics
-      if (street.properties?.oneway) oneWayCount++;
+      // Track statistics for special types
       if (street.properties?.hasRestrictions) restrictedCount++;
       if (street.properties?.isDeadEnd) deadEndCount++;
 
@@ -166,17 +163,63 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
           ST_GeomFromText(${linestring}, 4326)
         )
       `;
-      insertedCount++;
     }
 
-    // Get summary statistics
+    // IMPORTANT: Remove streets that don't actually intersect with the area polygon
+    // This filters out streets that are within the bounding box but outside the actual area
+    const deletedResult = await sql`
+      DELETE FROM edges 
+      WHERE area_id = ${id} 
+      AND NOT ST_Intersects(
+        geom, 
+        (SELECT geom FROM areas WHERE id = ${id})
+      )
+      RETURNING id
+    `;
+
+    const deletedCount = deletedResult.length;
+    if (deletedCount > 0) {
+      console.log(`Removed ${deletedCount} streets outside the area boundary`);
+    }
+
+    // Get summary statistics and fetch the filtered streets
     const stats = await sql`
       SELECT 
         COUNT(*) as street_count,
-        COALESCE(SUM(ST_Length(geom::geography)), 0) as total_length_m
+        COALESCE(SUM(ST_Length(geom::geography)), 0) as total_length_m,
+        COUNT(CASE WHEN oneway = true THEN 1 END) as oneway_count
       FROM edges
       WHERE area_id = ${id}
     `;
+
+    // Fetch the filtered streets from database to return correct GeoJSON
+    const filteredStreetsResult = await sql`
+      SELECT 
+        id,
+        way_id,
+        oneway,
+        tags,
+        ST_AsGeoJSON(geom)::json as geometry
+      FROM edges
+      WHERE area_id = ${id}
+    `;
+
+    // Convert back to GeoJSON FeatureCollection
+    const filteredFeatures = filteredStreetsResult.map((street) => ({
+      type: 'Feature',
+      properties: {
+        ...street.tags,
+        id: street.id,
+        osmId: street.way_id,
+        oneway: street.oneway,
+      },
+      geometry: street.geometry,
+    }));
+
+    const filteredGeoJSON = {
+      type: 'FeatureCollection',
+      features: filteredFeatures,
+    };
 
     return NextResponse.json({
       success: true,
@@ -186,8 +229,9 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
       },
       extraction: {
         streets_found: osmData.elements?.length || 0,
-        streets_filtered: insertedCount,
-        one_way_streets: oneWayCount,
+        streets_filtered: stats[0].street_count || 0,
+        streets_removed: deletedCount,
+        one_way_streets: stats[0].oneway_count || 0,
         restricted_streets: restrictedCount,
         dead_ends: deadEndCount,
         total_length_km: ((stats[0].total_length_m || 0) / 1000).toFixed(2),
@@ -197,7 +241,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
         includePrivateRoads,
         respectRestrictions,
       },
-      geojson: streets,
+      geojson: filteredGeoJSON, // Return the filtered streets
     });
   } catch (error) {
     console.error('Street extraction error:', error);
