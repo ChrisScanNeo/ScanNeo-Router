@@ -427,6 +427,54 @@ export default function NavigationPage() {
     }
   }, [routeData, mapReady]); // Add mapReady dependency
 
+  // Navigation calculation functions - moved before startNavigation
+  const calculateBearing = useCallback((start: [number, number], end: [number, number]): number => {
+    const dLon = (end[0] - start[0]) * Math.PI / 180;
+    const lat1 = start[1] * Math.PI / 180;
+    const lat2 = end[1] * Math.PI / 180;
+    const y = Math.sin(dLon) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    const bearing = Math.atan2(y, x) * 180 / Math.PI;
+    return (bearing + 360) % 360;
+  }, []);
+
+  const getTurnType = useCallback((currentBearing: number, nextBearing: number): 'left' | 'right' | 'straight' | 'u-turn' => {
+    let angle = nextBearing - currentBearing;
+    if (angle > 180) angle -= 360;
+    if (angle < -180) angle += 360;
+    
+    if (Math.abs(angle) < 30) return 'straight';
+    if (Math.abs(angle) > 150) return 'u-turn';
+    if (angle < 0) return 'left';
+    return 'right';
+  }, []);
+
+  const calculateDistance = useCallback((point1: [number, number], point2: [number, number]): number => {
+    const R = 6371000; // Earth radius in meters
+    const φ1 = point1[1] * Math.PI / 180;
+    const φ2 = point2[1] * Math.PI / 180;
+    const Δφ = (point2[1] - point1[1]) * Math.PI / 180;
+    const Δλ = (point2[0] - point1[0]) * Math.PI / 180;
+    
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    
+    return R * c;
+  }, []);
+
+  // Audio alerts helper
+  const playAudioAlert = useCallback((message: string) => {
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(message);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+  }, []);
+
   // Start navigation
   const startNavigation = useCallback(() => {
     console.log('🚀 Starting GPS navigation...');
@@ -603,45 +651,10 @@ export default function NavigationPage() {
         }
       }
     },
-    [routeData]
+    [routeData, calculateBearing, getTurnType, calculateDistance]
   );
 
-  // Navigation calculation functions
-  const calculateBearing = (start: [number, number], end: [number, number]): number => {
-    const dLon = (end[0] - start[0]) * Math.PI / 180;
-    const lat1 = start[1] * Math.PI / 180;
-    const lat2 = end[1] * Math.PI / 180;
-    const y = Math.sin(dLon) * Math.cos(lat2);
-    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
-    const bearing = Math.atan2(y, x) * 180 / Math.PI;
-    return (bearing + 360) % 360;
-  };
-
-  const getTurnType = (currentBearing: number, nextBearing: number): 'left' | 'right' | 'straight' | 'u-turn' => {
-    let angle = nextBearing - currentBearing;
-    if (angle > 180) angle -= 360;
-    if (angle < -180) angle += 360;
-    
-    if (Math.abs(angle) < 30) return 'straight';
-    if (Math.abs(angle) > 150) return 'u-turn';
-    if (angle < 0) return 'left';
-    return 'right';
-  };
-
-  const calculateDistance = (point1: [number, number], point2: [number, number]): number => {
-    const R = 6371000; // Earth radius in meters
-    const φ1 = point1[1] * Math.PI / 180;
-    const φ2 = point2[1] * Math.PI / 180;
-    const Δφ = (point2[1] - point1[1]) * Math.PI / 180;
-    const Δλ = (point2[0] - point1[0]) * Math.PI / 180;
-    
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    
-    return R * c;
-  };
+  // (Navigation calculation functions already defined above as useCallbacks)
 
   // Distance calculation functions
   const distanceToLineSegment = (
@@ -783,7 +796,7 @@ export default function NavigationPage() {
 
       return () => clearTimeout(timer);
     }
-  }, [navState.offRoute, navState.offRouteTimer, navState.isNavigating]);
+  }, [navState.offRoute, navState.offRouteTimer, navState.isNavigating, playAudioAlert]);
 
   // Turn announcements
   useEffect(() => {
@@ -806,7 +819,7 @@ export default function NavigationPage() {
         playAudioAlert(`In 200 meters, ${turnText}`);
       }
     }
-  }, [navState.nextTurn?.distance, navState.isNavigating, navState.offRoute]);
+  }, [navState.nextTurn?.distance, navState.isNavigating, navState.offRoute, playAudioAlert]);
 
   const handleReroute = async () => {
     if (!navState.currentPosition || !routeData) return;
