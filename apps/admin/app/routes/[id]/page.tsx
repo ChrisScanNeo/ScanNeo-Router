@@ -136,6 +136,18 @@ export default function RouteDetailsPage() {
         </div>
       </div>
 
+      {/* Navigation Button - Prominent for tablets */}
+      {route.status === 'completed' && (
+        <div className="mb-6 lg:hidden">
+          <Link
+            href={`/navigate/${route.id}`}
+            className="block w-full px-6 py-4 bg-[#00B140] text-white text-center rounded-lg hover:bg-[#00A038] transition-colors font-bold text-xl shadow-lg"
+          >
+            🚗 Start Navigation
+          </Link>
+        </div>
+      )}
+
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Left Column - Route Information */}
@@ -213,54 +225,9 @@ export default function RouteDetailsPage() {
           )}
         </div>
 
-        {/* Right Column - Metadata and Actions */}
+        {/* Right Column - Actions and Map */}
         <div className="space-y-6">
-          {/* Map Preview */}
-          {route.status === 'completed' && route.geojson && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold mb-4 text-[#4C4FA3]">Route Preview</h2>
-              <div className="h-[400px] rounded-lg overflow-hidden">
-                <RouteMapPreview routeGeojson={route.geojson} routeName={route.area_name} />
-              </div>
-            </div>
-          )}
-
-          {/* Processing Metadata */}
-          {route.metadata && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold mb-4 text-[#4C4FA3]">Processing Details</h2>
-              <div className="space-y-3">
-                {route.metadata.stage && (
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Current Stage</dt>
-                    <dd className="text-sm text-gray-900">{route.metadata.stage}</dd>
-                  </div>
-                )}
-                {route.metadata.stats && (
-                  <>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Streets Processed</dt>
-                      <dd className="text-sm text-gray-900">{route.metadata.stats.streets || 0}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Route Length</dt>
-                      <dd className="text-sm text-gray-900">
-                        {route.metadata.stats.length_km || 0} km
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Estimated Time</dt>
-                      <dd className="text-sm text-gray-900">
-                        {route.metadata.stats.time_hours || 0} hours
-                      </dd>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Actions */}
+          {/* Actions - Moved to top for better visibility */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold mb-4 text-[#4C4FA3]">Actions</h2>
             <div className="space-y-3">
@@ -268,7 +235,7 @@ export default function RouteDetailsPage() {
                 <>
                   <Link
                     href={`/navigate/${route.id}`}
-                    className="block w-full px-4 py-3 bg-[#00B140] text-white text-center rounded-lg hover:bg-[#00A038] transition-colors font-semibold text-lg"
+                    className="hidden lg:block w-full px-4 py-3 bg-[#00B140] text-white text-center rounded-lg hover:bg-[#00A038] transition-colors font-semibold text-lg"
                   >
                     🚗 Start Navigation
                   </Link>
@@ -351,6 +318,51 @@ export default function RouteDetailsPage() {
               )}
             </div>
           </div>
+
+          {/* Map Preview */}
+          {route.status === 'completed' && route.geojson && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold mb-4 text-[#4C4FA3]">Route Preview</h2>
+              <div className="h-[400px] rounded-lg overflow-hidden">
+                <RouteMapPreview routeGeojson={route.geojson} routeName={route.area_name} />
+              </div>
+            </div>
+          )}
+
+          {/* Processing Metadata */}
+          {route.metadata && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold mb-4 text-[#4C4FA3]">Processing Details</h2>
+              <div className="space-y-3">
+                {route.metadata.stage && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Current Stage</dt>
+                    <dd className="text-sm text-gray-900">{route.metadata.stage}</dd>
+                  </div>
+                )}
+                {route.metadata.stats && (
+                  <>
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Streets Processed</dt>
+                      <dd className="text-sm text-gray-900">{route.metadata.stats.streets || 0}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Route Length</dt>
+                      <dd className="text-sm text-gray-900">
+                        {route.metadata.stats.length_km || 0} km
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Estimated Time</dt>
+                      <dd className="text-sm text-gray-900">
+                        {route.metadata.stats.time_hours || 0} hours
+                      </dd>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Chunks List */}
           {route.status === 'completed' && route.chunks && route.chunks.length > 0 && (

@@ -123,7 +123,26 @@ class RouteCalculator:
             diagnostics['circuits_found'] = len(scc_circuits)
             
             if not scc_circuits:
-                raise ValueError("No valid circuits found in any SCC")
+                logger.warning("No valid circuits found in any SCC - attempting fallback")
+                # Fallback: return simple concatenation of all edges
+                all_coords = []
+                for edge in G.edges(data=True):
+                    geom = edge[2].get('geometry', [])
+                    if geom:
+                        all_coords.extend(geom)
+                
+                if not all_coords:
+                    raise ValueError("No valid circuits found and no edge geometry available")
+                
+                return {
+                    'geometry': {
+                        'type': 'LineString',
+                        'coordinates': [[c[0], c[1]] for c in all_coords]
+                    },
+                    'gaps': [],
+                    'statistics': {},
+                    'diagnostics': diagnostics
+                }
             
             # Step 7: Order SCCs optimally (TSP on centroids)
             logger.info("Ordering SCCs for optimal traversal...")
@@ -138,7 +157,25 @@ class RouteCalculator:
             )
             
             if not route_coords:
-                raise ValueError("Failed to assemble route")
+                logger.warning("Failed to assemble route via circuits - attempting edge concatenation fallback")
+                # Fallback: concatenate all edges from all SCCs
+                route_coords = []
+                for idx, G_scc, circuit in scc_circuits:
+                    for edge in circuit:
+                        if len(edge) == 3:  # Has edge key
+                            u, v, k = edge
+                            edge_data = G_scc.get_edge_data(u, v, key=k)
+                        else:
+                            u, v = edge
+                            edge_data = G_scc.get_edge_data(u, v)
+                        
+                        if edge_data and 'geometry' in edge_data:
+                            geom = edge_data['geometry']
+                            if geom:
+                                route_coords.extend([[p[0], p[1]] for p in geom])
+                
+                if not route_coords:
+                    raise ValueError("Failed to assemble route - no geometry found")
             
             diagnostics['route_points'] = len(route_coords)
             

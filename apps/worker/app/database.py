@@ -30,6 +30,10 @@ class Database:
             # Parse database URL and add SSL if needed
             db_url = settings.database_url
             
+            # Remove pgbouncer parameter as psycopg2 doesn't support it
+            if 'pgbouncer=true' in db_url:
+                db_url = db_url.replace('&pgbouncer=true', '').replace('?pgbouncer=true', '')
+            
             # Neon requires SSL - add it if not present
             if 'neon.tech' in db_url and 'sslmode=' not in db_url:
                 if '?' in db_url:

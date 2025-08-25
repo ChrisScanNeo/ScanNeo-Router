@@ -1,0 +1,43 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Street 1"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -1.06,
+            50.8
+          ],
+          [
+            -1.055,
+            50.805
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Street 2 (disconnected)"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -1.05,
+            50.81
+          ],
+          [
+            -1.045,
+            50.815
+          ]
+        ]
+      }
+    }
+  ]
+}

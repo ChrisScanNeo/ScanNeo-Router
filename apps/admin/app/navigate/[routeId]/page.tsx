@@ -242,6 +242,33 @@ export default function NavigationPage() {
           });
           setRouteData(data);
         }
+
+        // Request GPS permission immediately after route loads
+        if (navigator.geolocation) {
+          console.log('📍 Requesting GPS permission on page load...');
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              console.log('✅ GPS permission granted on load');
+              const newPosition: [number, number] = [
+                position.coords.longitude,
+                position.coords.latitude,
+              ];
+              setNavState((prev) => ({
+                ...prev,
+                currentPosition: newPosition,
+              }));
+            },
+            (error) => {
+              console.warn('⚠️ Initial GPS permission denied or error:', error.message);
+              // Don't set error state, user can still start navigation later
+            },
+            {
+              enableHighAccuracy: true,
+              timeout: 10000,
+              maximumAge: 0,
+            }
+          );
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load route');
       } finally {

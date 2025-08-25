@@ -24,30 +24,35 @@ A comprehensive city coverage routing system with real-time navigation and rerou
 - Comprehensive dashboard with status monitoring
 - Area import interface with GeoJSON upload
 - Route management with job monitoring
-- Interactive map visualization (placeholder)
+- Interactive map visualization with Mapbox
 - Professional responsive UI with Tailwind CSS
-- Demo functionality for testing and demonstration
+- Real-time route generation status
 
-### 🚧 Phase 3: Backend Integration (In Progress)
+### ✅ Phase 3: Python Worker Service (Complete)
 
-- Coverage algorithm implementation
+- FastAPI service for route processing
+- Chinese Postman algorithm implementation
 - Street network fetching from OpenStreetMap
-- Chinese Postman algorithm for optimal routing
-- Route validation and optimization
-- Progress tracking system
+- Route optimization with NetworkX
+- Deployed to Google Cloud Run
+- Real-time job processing from database queue
 
-### 📅 Phase 4: Mobile Navigator App (Planned)
+### ✅ Phase 4: Turn-by-Turn Navigator (Complete)
+
+- **Tablet-optimized navigation interface**
+- **Real-time GPS tracking**
+- **Coverage progress visualization**
+- **Automatic off-route detection and rerouting**
+- **Large touch-friendly controls**
+- **Color-coded route segments (covered/upcoming)**
+- **No app installation required - runs in browser**
+
+### 🚧 Phase 5: Mobile App (Future)
 
 - React Native with Expo
-- Real-time navigation
-- Offline mode support
+- Offline map support
 - Voice guidance
-
-### 📅 Phase 5: Python Worker Service (Planned)
-
-- FastAPI service
-- Background processing
-- Route optimization
+- Background tracking
 
 ## 🚀 Quick Start (5 minutes)
 
@@ -133,14 +138,39 @@ Open http://localhost:3000 - You're now using live services!
 └── /docs               # Documentation
 ```
 
+## 🚗 Navigator Features
+
+### Turn-by-Turn Navigation
+- **Real-time GPS tracking** with 1Hz update rate
+- **Coverage visualization** - streets turn green as you drive them
+- **Progress tracking** - see percentage of route completed
+- **Off-route detection** - alerts when >50m from route
+- **Automatic rerouting** - calculates path back to route
+- **Tablet-optimized UI** - large buttons, high contrast
+- **No installation needed** - runs in any modern browser
+
+### How to Navigate
+1. Generate a coverage route for your area
+2. Click "Navigate" on any completed route
+3. Mount tablet securely in vehicle
+4. Press "Start Navigation" to begin
+5. Follow the blue route - it turns green as you cover streets
+6. System auto-reroutes if you go off course
+
+### Testing Navigation
+- Use browser DevTools to simulate GPS (see [Test Guide](docs/NAVIGATOR_TEST_GUIDE.md))
+- Test with real device for actual GPS tracking
+- Coverage progress saved to database
+
 ## 🛠️ Technology Stack
 
-- **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
+- **Frontend**: Next.js 15, React, TypeScript, Tailwind CSS
+- **Backend**: Python FastAPI, NetworkX for routing algorithms
 - **Database**: Neon PostgreSQL with PostGIS
 - **Queue**: Upstash Redis
 - **Auth**: Firebase Authentication
-- **Maps**: Mapbox, OpenRouteService
-- **Deployment**: Vercel
+- **Maps**: Mapbox GL JS, OpenRouteService API
+- **Deployment**: Vercel (frontend), Google Cloud Run (worker)
 
 ## 🔑 Environment Management
 

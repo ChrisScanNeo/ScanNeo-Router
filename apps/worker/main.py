@@ -214,6 +214,54 @@ async def test_ors():
         }
 
 
+@app.post("/api/generate-route")
+async def generate_route(request: dict):
+    """
+    Generate a coverage route using Chinese Postman algorithm
+    Called directly from the frontend
+    """
+    try:
+        from app.services.route_calculator import RouteCalculator
+        
+        # Extract parameters from request
+        streets_geojson = request.get('streets_geojson')
+        start_point = request.get('start_point')
+        coverage_mode = request.get('coverage_mode', True)
+        
+        if not streets_geojson:
+            raise HTTPException(status_code=400, detail="streets_geojson is required")
+        
+        logger.info(f"Generating route for {len(streets_geojson.get('features', []))} streets")
+        
+        # Initialize route calculator with coverage mode
+        calculator = RouteCalculator(coverage_mode=coverage_mode)
+        
+        # Calculate the route using Chinese Postman algorithm
+        result = await calculator.calculate_route(
+            streets_geojson=streets_geojson,
+            profile='driving-car'
+        )
+        
+        # Format response for frontend
+        response = {
+            "success": True,
+            "route": {
+                "geometry": result.get('geometry'),
+                "gaps": result.get('gaps', []),
+                "statistics": result.get('statistics', {}),
+                "diagnostics": result.get('diagnostics', {})
+            }
+        }
+        
+        logger.info(f"Route generated successfully with {len(result.get('gaps', []))} gaps")
+        return response
+        
+    except Exception as e:
+        logger.error(f"Route generation failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/process/manual")
 async def trigger_manual_job(request: ManualJobRequest):
     """
@@ -320,7 +368,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=8080,
-        reload=settings.environment == "development",
-        log_level=settings.log_level.lower()
+        port=8000,  # Changed to 8000 for local development
+        reload=settings.environment == "development" if settings else False,
+        log_level=settings.log_level.lower() if settings else "info"
     )

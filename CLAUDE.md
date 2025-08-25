@@ -693,13 +693,33 @@ ALTER TABLE areas
 
 This changes the geometry column from `POLYGON` to generic `GEOMETRY` type.
 
+### ✅ Latest Features (November 2024)
+
+#### Turn-by-Turn Navigator
+- **Tablet-optimized interface** at `/navigate/[routeId]`
+- **Real-time GPS tracking** with browser Geolocation API
+- **Coverage visualization** - streets turn green when covered
+- **Off-route detection** - 50m threshold with 10s reroute timer
+- **Automatic rerouting** - calculates path back to route
+- **Progress tracking** - percentage and visual indicators
+- **Large touch controls** - optimized for in-car use
+
+#### Navigation Implementation
+```typescript
+// Key files:
+apps/admin/app/navigate/[routeId]/page.tsx  // Main navigation interface
+apps/admin/app/api/navigation/start/route.ts  // Initialize session
+apps/admin/app/api/navigation/reroute/route.ts  // Handle rerouting
+apps/admin/app/api/navigation/progress/route.ts  // Track coverage
+```
+
 ### Next Implementation Priority
 
-1. **Backend Worker Integration**: Connect route generation to actual processing
-2. **Coverage Algorithm**: Implement Chinese Postman algorithm
-3. **Authentication Flow**: Add Firebase Auth to frontend
-4. **Route Chunking**: Split routes into navigable segments
-5. **Progress Tracking**: Real-time route coverage tracking
+1. **Voice Instructions**: Add text-to-speech for turns
+2. **Offline Support**: Cache map tiles for offline use
+3. **Multi-stop Routes**: Support for delivery/pickup stops
+4. **Team Tracking**: Show other drivers on same route
+5. **Analytics Dashboard**: Coverage statistics and efficiency metrics
 
 ## Review Checklist for Claude
 
