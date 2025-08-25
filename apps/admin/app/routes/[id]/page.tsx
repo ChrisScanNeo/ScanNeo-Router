@@ -137,7 +137,7 @@ export default function RouteDetailsPage() {
       </div>
 
       {/* Navigation Button - Prominent for tablets and mobile */}
-      {(route.status === 'completed' || route.metadata?.route) && (
+      {(route.status === 'completed' || !!route.metadata?.route) && (
         <div className="mb-6 xl:hidden">
           <Link
             href={`/navigate/${route.id}`}
@@ -231,7 +231,7 @@ export default function RouteDetailsPage() {
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold mb-4 text-[#4C4FA3]">Actions</h2>
             <div className="space-y-3">
-              {(route.status === 'completed' || route.metadata?.route) && (
+              {(route.status === 'completed' || !!route.metadata?.route) && (
                 <>
                   <Link
                     href={`/navigate/${route.id}`}
