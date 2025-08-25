@@ -762,18 +762,7 @@ export default function NavigationPage() {
     setNavState((prev) => ({ ...prev, isNavigating: false }));
   }, []);
 
-  // Audio alerts helper
-  const playAudioAlert = (message: string) => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(message);
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
-      window.speechSynthesis.speak(utterance);
-    }
-  };
-
-  // Handle off-route timer with audio alerts
+  // Handle off-route timer with audio alerts (playAudioAlert already defined above)
   useEffect(() => {
     if (navState.offRoute && navState.isNavigating) {
       // Play alert when first going off route
