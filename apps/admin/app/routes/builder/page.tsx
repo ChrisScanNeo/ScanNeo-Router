@@ -7,7 +7,13 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import toast from 'react-hot-toast';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
-mapboxgl.accessToken = MAPBOX_TOKEN;
+
+// Set the token if available
+if (MAPBOX_TOKEN) {
+  mapboxgl.accessToken = MAPBOX_TOKEN;
+} else {
+  console.warn('Mapbox token not found in environment variables');
+}
 
 type Step =
   | 'select-area'
@@ -64,21 +70,46 @@ function RouteBuilderContent() {
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
-      center: [-0.0875, 51.5085],
-      zoom: 11,
-    });
+    console.log('Initializing Mapbox map...');
+    console.log('Mapbox token:', MAPBOX_TOKEN ? 'Token present' : 'NO TOKEN FOUND');
+    console.log('Map container:', mapContainer.current);
 
-    map.current.on('load', () => {
-      setMapLoaded(true);
-      // Add navigation controls
-      if (map.current) {
-        map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-        map.current.addControl(new mapboxgl.FullscreenControl(), 'top-right');
-      }
-    });
+    if (!MAPBOX_TOKEN) {
+      console.error('Mapbox token is missing! Map will not load.');
+      toast.error('Map configuration error - Mapbox token missing');
+      return;
+    }
+
+    try {
+      map.current = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [-0.0875, 51.5085],
+        zoom: 11,
+      });
+
+      console.log('Map instance created');
+
+      map.current.on('load', () => {
+        console.log('Map loaded successfully');
+        setMapLoaded(true);
+        // Add navigation controls
+        if (map.current) {
+          map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+          map.current.addControl(new mapboxgl.FullscreenControl(), 'top-right');
+        }
+      });
+
+      map.current.on('error', (e) => {
+        console.error('Mapbox error:', e);
+        if (e.error?.message?.includes('401') || e.error?.message?.includes('403')) {
+          toast.error('Invalid Mapbox token. Please check configuration.');
+        }
+      });
+    } catch (error) {
+      console.error('Failed to initialize map:', error);
+      toast.error('Failed to initialize map');
+    }
 
     return () => {
       if (map.current) {
@@ -678,8 +709,16 @@ function RouteBuilderContent() {
       </div>
 
       {/* Map Container */}
-      <div className="flex-1 relative">
-        <div ref={mapContainer} className="absolute inset-0" />
+      <div className="flex-1 relative bg-gray-100">
+        <div ref={mapContainer} className="absolute inset-0 w-full h-full" />
+        {!mapLoaded && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mb-4"></div>
+              <p className="text-gray-600">Loading map...</p>
+            </div>
+          </div>
+        )}
 
         {/* Map Overlay for Gap Resolution */}
         {currentStep === 'resolve-gaps' && gaps.length > 0 && (
