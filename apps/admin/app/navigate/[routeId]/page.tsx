@@ -263,13 +263,13 @@ export default function NavigationPage() {
                 ...prev,
                 currentPosition: newPosition,
               }));
-              
+
               // Update user marker position
               if (userMarker.current) {
                 userMarker.current.setLngLat(newPosition);
                 console.log('📌 Initial user marker position set');
               }
-              
+
               // Center map on user location
               if (map.current) {
                 map.current.flyTo({
@@ -429,40 +429,46 @@ export default function NavigationPage() {
 
   // Navigation calculation functions - moved before startNavigation
   const calculateBearing = useCallback((start: [number, number], end: [number, number]): number => {
-    const dLon = (end[0] - start[0]) * Math.PI / 180;
-    const lat1 = start[1] * Math.PI / 180;
-    const lat2 = end[1] * Math.PI / 180;
+    const dLon = ((end[0] - start[0]) * Math.PI) / 180;
+    const lat1 = (start[1] * Math.PI) / 180;
+    const lat2 = (end[1] * Math.PI) / 180;
     const y = Math.sin(dLon) * Math.cos(lat2);
     const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
-    const bearing = Math.atan2(y, x) * 180 / Math.PI;
+    const bearing = (Math.atan2(y, x) * 180) / Math.PI;
     return (bearing + 360) % 360;
   }, []);
 
-  const getTurnType = useCallback((currentBearing: number, nextBearing: number): 'left' | 'right' | 'straight' | 'u-turn' => {
-    let angle = nextBearing - currentBearing;
-    if (angle > 180) angle -= 360;
-    if (angle < -180) angle += 360;
-    
-    if (Math.abs(angle) < 30) return 'straight';
-    if (Math.abs(angle) > 150) return 'u-turn';
-    if (angle < 0) return 'left';
-    return 'right';
-  }, []);
+  const getTurnType = useCallback(
+    (currentBearing: number, nextBearing: number): 'left' | 'right' | 'straight' | 'u-turn' => {
+      let angle = nextBearing - currentBearing;
+      if (angle > 180) angle -= 360;
+      if (angle < -180) angle += 360;
 
-  const calculateDistance = useCallback((point1: [number, number], point2: [number, number]): number => {
-    const R = 6371000; // Earth radius in meters
-    const φ1 = point1[1] * Math.PI / 180;
-    const φ2 = point2[1] * Math.PI / 180;
-    const Δφ = (point2[1] - point1[1]) * Math.PI / 180;
-    const Δλ = (point2[0] - point1[0]) * Math.PI / 180;
-    
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    
-    return R * c;
-  }, []);
+      if (Math.abs(angle) < 30) return 'straight';
+      if (Math.abs(angle) > 150) return 'u-turn';
+      if (angle < 0) return 'left';
+      return 'right';
+    },
+    []
+  );
+
+  const calculateDistance = useCallback(
+    (point1: [number, number], point2: [number, number]): number => {
+      const R = 6371000; // Earth radius in meters
+      const φ1 = (point1[1] * Math.PI) / 180;
+      const φ2 = (point2[1] * Math.PI) / 180;
+      const Δφ = ((point2[1] - point1[1]) * Math.PI) / 180;
+      const Δλ = ((point2[0] - point1[0]) * Math.PI) / 180;
+
+      const a =
+        Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+        Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+      return R * c;
+    },
+    []
+  );
 
   // Audio alerts helper
   const playAudioAlert = useCallback((message: string) => {
@@ -490,23 +496,23 @@ export default function NavigationPage() {
       const firstPoint = coords[0] as [number, number];
       const secondPoint = coords[1] as [number, number];
       const thirdPoint = coords[2] as [number, number];
-      
+
       // Calculate initial turn
       const currentBearing = calculateBearing(firstPoint, secondPoint);
       const nextBearing = calculateBearing(secondPoint, thirdPoint);
       const turnType = getTurnType(currentBearing, nextBearing);
-      
+
       // Set navigation state with initial turn
-      setNavState((prev) => ({ 
-        ...prev, 
+      setNavState((prev) => ({
+        ...prev,
         isNavigating: true,
         nextTurn: {
           type: turnType as 'left' | 'right' | 'straight' | 'u-turn' | 'arrive',
           distance: 100, // Default distance until we get real position
-          streetName: undefined
-        }
+          streetName: undefined,
+        },
       }));
-      
+
       // Announce start
       playAudioAlert('Navigation started. Follow the highlighted route.');
     } else {
@@ -559,7 +565,7 @@ export default function NavigationPage() {
         timeout: 5000,
       }
     );
-  }, [navState.isNavigating, routeData, calculateBearing, getTurnType, playAudioAlert, checkRouteProgress]);
+  }, [navState.isNavigating, routeData, calculateBearing, getTurnType, playAudioAlert]);
 
   // Check route progress and off-route status
   const checkRouteProgress = useCallback(
@@ -610,16 +616,16 @@ export default function NavigationPage() {
             const currentPoint = coords[nearestSegmentIndex] as [number, number];
             const nextPoint = coords[nearestSegmentIndex + 1] as [number, number];
             const futurePoint = coords[nearestSegmentIndex + 2] as [number, number];
-            
+
             const currentBearing = calculateBearing(currentPoint, nextPoint);
             const nextBearing = calculateBearing(nextPoint, futurePoint);
             const turnType = getTurnType(currentBearing, nextBearing);
             const distanceToTurn = calculateDistance(position, nextPoint);
-            
+
             nextTurnInfo = {
               type: turnType as 'left' | 'right' | 'straight' | 'u-turn' | 'arrive',
               distance: distanceToTurn,
-              streetName: undefined
+              streetName: undefined,
             };
           } else if (nearestSegmentIndex >= coords.length - 2) {
             // Near the end of route
@@ -628,7 +634,7 @@ export default function NavigationPage() {
             nextTurnInfo = {
               type: 'arrive' as const,
               distance: distanceToEnd,
-              streetName: 'Destination'
+              streetName: 'Destination',
             };
           }
 
@@ -791,20 +797,29 @@ export default function NavigationPage() {
   useEffect(() => {
     if (navState.nextTurn && navState.isNavigating && !navState.offRoute) {
       const distance = navState.nextTurn.distance;
-      
+
       // Announce at specific distances (with some tolerance)
       if (distance <= 50 && distance > 40) {
-        const turnText = navState.nextTurn.type === 'left' ? 'Turn left' 
-                       : navState.nextTurn.type === 'right' ? 'Turn right'
-                       : navState.nextTurn.type === 'u-turn' ? 'Make a U-turn'
-                       : navState.nextTurn.type === 'arrive' ? 'Arriving at destination'
-                       : 'Continue straight';
+        const turnText =
+          navState.nextTurn.type === 'left'
+            ? 'Turn left'
+            : navState.nextTurn.type === 'right'
+              ? 'Turn right'
+              : navState.nextTurn.type === 'u-turn'
+                ? 'Make a U-turn'
+                : navState.nextTurn.type === 'arrive'
+                  ? 'Arriving at destination'
+                  : 'Continue straight';
         playAudioAlert(`${turnText} now`);
       } else if (distance <= 200 && distance > 190) {
-        const turnText = navState.nextTurn.type === 'left' ? 'turn left' 
-                       : navState.nextTurn.type === 'right' ? 'turn right'
-                       : navState.nextTurn.type === 'u-turn' ? 'make a U-turn'
-                       : 'continue';
+        const turnText =
+          navState.nextTurn.type === 'left'
+            ? 'turn left'
+            : navState.nextTurn.type === 'right'
+              ? 'turn right'
+              : navState.nextTurn.type === 'u-turn'
+                ? 'make a U-turn'
+                : 'continue';
         playAudioAlert(`In 200 meters, ${turnText}`);
       }
     }
@@ -908,25 +923,38 @@ export default function NavigationPage() {
       {/* Debug GPS Info - Remove after testing */}
       <div className="fixed top-24 left-4 bg-white bg-opacity-95 text-black p-3 rounded-lg z-30 text-sm max-w-xs shadow-lg">
         <div className="font-bold mb-2">GPS Debug Info:</div>
-        <div>Position: {navState.currentPosition ? `${navState.currentPosition[1].toFixed(5)}, ${navState.currentPosition[0].toFixed(5)}` : 'Not available'}</div>
+        <div>
+          Position:{' '}
+          {navState.currentPosition
+            ? `${navState.currentPosition[1].toFixed(5)}, ${navState.currentPosition[0].toFixed(5)}`
+            : 'Not available'}
+        </div>
         <div>Navigation: {navState.isNavigating ? '✅ Active' : '❌ Not started'}</div>
         <div>Off Route: {navState.offRoute ? '⚠️ Yes' : '✅ No'}</div>
         <div>Route Data: {routeData ? '✅ Loaded' : '❌ Not loaded'}</div>
         <div>Map Ready: {mapReady ? '✅ Yes' : '❌ No'}</div>
-        <div>Next Turn: {navState.nextTurn ? `${navState.nextTurn.type} in ${Math.round(navState.nextTurn.distance)}m` : 'None'}</div>
+        <div>
+          Next Turn:{' '}
+          {navState.nextTurn
+            ? `${navState.nextTurn.type} in ${Math.round(navState.nextTurn.distance)}m`
+            : 'None'}
+        </div>
         <div className="mt-2 pt-2 border-t">
-          <div>Screen: {typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'N/A'}</div>
+          <div>
+            Screen:{' '}
+            {typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'N/A'}
+          </div>
           {/* Demo button to simulate turn */}
-          <button 
+          <button
             onClick={() => {
-              setNavState(prev => ({
+              setNavState((prev) => ({
                 ...prev,
                 nextTurn: {
                   type: 'left',
                   distance: 150,
-                  streetName: 'Demo Street'
+                  streetName: 'Demo Street',
                 },
-                isNavigating: true
+                isNavigating: true,
               }));
               playAudioAlert('In 150 meters, turn left');
             }}
@@ -992,12 +1020,13 @@ export default function NavigationPage() {
                       {navState.nextTurn.type === 'arrive' && 'Arriving at End'}
                     </div>
                     <div className="text-xl mt-1">
-                      {navState.nextTurn.distance < 1000 
+                      {navState.nextTurn.distance < 1000
                         ? `${Math.round(navState.nextTurn.distance)} meters`
                         : `${(navState.nextTurn.distance / 1000).toFixed(1)} km`}
                     </div>
                     <div className="text-sm opacity-75 mt-1">
-                      Segment {navState.currentSegmentIndex + 1} of {routeData?.geometry.coordinates.length || 0}
+                      Segment {navState.currentSegmentIndex + 1} of{' '}
+                      {routeData?.geometry.coordinates.length || 0}
                     </div>
                   </div>
                 </div>
