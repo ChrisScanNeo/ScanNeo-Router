@@ -267,6 +267,12 @@ export default function RouteDetailsPage() {
               {route.status === 'completed' && (
                 <>
                   <Link
+                    href={`/navigate/${route.id}`}
+                    className="block w-full px-4 py-3 bg-[#00B140] text-white text-center rounded-lg hover:bg-[#00A038] transition-colors font-semibold text-lg"
+                  >
+                    🚗 Start Navigation
+                  </Link>
+                  <Link
                     href={`/map?route=${route.id}`}
                     className="block w-full px-4 py-2 bg-[#4C4FA3] text-white text-center rounded-lg hover:bg-[#3A3D80] transition-colors"
                   >

@@ -489,12 +489,20 @@ function RoutesList() {
               <td className="px-6 py-4 whitespace-nowrap text-sm">
                 <div className="flex space-x-2">
                   {route.status === 'completed' && (
-                    <Link
-                      href={`/routes/${route.id}`}
-                      className="text-blue-600 hover:text-blue-900"
-                    >
-                      View
-                    </Link>
+                    <>
+                      <Link
+                        href={`/routes/${route.id}`}
+                        className="text-blue-600 hover:text-blue-900"
+                      >
+                        View
+                      </Link>
+                      <Link
+                        href={`/navigate/${route.id}`}
+                        className="text-green-600 hover:text-green-900 font-semibold"
+                      >
+                        Navigate
+                      </Link>
+                    </>
                   )}
                   {(route.status === 'failed' ||
                     route.status === 'cancelled' ||
