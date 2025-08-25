@@ -778,6 +778,16 @@ export default function NavigationPage() {
         }}
       />
 
+      {/* Debug GPS Info - Remove after testing */}
+      <div className="absolute top-24 left-4 bg-white bg-opacity-95 text-black p-3 rounded-lg z-30 text-sm max-w-xs shadow-lg">
+        <div className="font-bold mb-2">GPS Debug Info:</div>
+        <div>Position: {navState.currentPosition ? `${navState.currentPosition[1].toFixed(5)}, ${navState.currentPosition[0].toFixed(5)}` : 'Not available'}</div>
+        <div>Navigation: {navState.isNavigating ? '✅ Active' : '❌ Not started'}</div>
+        <div>Off Route: {navState.offRoute ? '⚠️ Yes' : '✅ No'}</div>
+        <div>Route Data: {routeData ? '✅ Loaded' : '❌ Not loaded'}</div>
+        <div>Map Ready: {mapReady ? '✅ Yes' : '❌ No'}</div>
+      </div>
+
       {/* Map Loading Overlay */}
       {!mapReady && (
         <div className="absolute inset-0 bg-gray-900 flex items-center justify-center z-50">

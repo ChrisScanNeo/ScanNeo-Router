@@ -136,17 +136,22 @@ export default function RouteDetailsPage() {
         </div>
       </div>
 
-      {/* Navigation Button - Prominent for tablets and mobile */}
-      {(route.status === 'completed' || !!route.metadata?.route) && (
-        <div className="mb-6 xl:hidden">
-          <Link
-            href={`/navigate/${route.id}`}
-            className="block w-full px-6 py-4 bg-[#00B140] text-white text-center rounded-lg hover:bg-[#00A038] transition-colors font-bold text-xl shadow-lg"
-          >
-            🚗 Start Navigation
-          </Link>
-        </div>
-      )}
+      {/* Debug Info - Remove this after testing */}
+      <div className="mb-4 p-4 bg-gray-100 rounded text-sm">
+        <div>Status: {route.status}</div>
+        <div>Has metadata.route: {route.metadata?.route ? 'Yes' : 'No'}</div>
+        <div>Screen width class test: <span className="inline lg:hidden">Mobile/Tablet</span><span className="hidden lg:inline">Desktop</span></div>
+      </div>
+
+      {/* Navigation Button - Always visible for testing */}
+      <div className="mb-6">
+        <Link
+          href={`/navigate/${route.id}`}
+          className="block w-full px-6 py-4 bg-[#00B140] text-white text-center rounded-lg hover:bg-[#00A038] transition-colors font-bold text-xl shadow-lg"
+        >
+          🚗 Start Navigation
+        </Link>
+      </div>
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -231,14 +236,15 @@ export default function RouteDetailsPage() {
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold mb-4 text-[#4C4FA3]">Actions</h2>
             <div className="space-y-3">
+              {/* Always show navigation button for testing */}
+              <Link
+                href={`/navigate/${route.id}`}
+                className="block w-full px-4 py-3 bg-[#00B140] text-white text-center rounded-lg hover:bg-[#00A038] transition-colors font-semibold text-lg"
+              >
+                🚗 Start Navigation
+              </Link>
               {(route.status === 'completed' || !!route.metadata?.route) && (
                 <>
-                  <Link
-                    href={`/navigate/${route.id}`}
-                    className="hidden xl:block w-full px-4 py-3 bg-[#00B140] text-white text-center rounded-lg hover:bg-[#00A038] transition-colors font-semibold text-lg"
-                  >
-                    🚗 Start Navigation
-                  </Link>
                   <Link
                     href={`/map?route=${route.id}`}
                     className="block w-full px-4 py-2 bg-[#4C4FA3] text-white text-center rounded-lg hover:bg-[#3A3D80] transition-colors"
